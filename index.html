@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora da Reforma Tributária para o Produtor Rural — Master Academy</title>
+<meta name="description" content="Simule em dois minutos quanto a Reforma Tributária representa na sua atividade rural: Imposto de Renda, IBS/CBS e a comparação entre os cenários.">
+<meta name="theme-color" content="#001f3f">
+
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:site_name" content="Master Academy">
+<meta property="og:title" content="Quanto a Reforma Tributária pesa na sua atividade rural?">
+<meta property="og:description" content="Simulação com os seus números: Imposto de Renda, IBS/CBS e a comparação entre cooperado, contribuinte e a faixa obrigatória.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- PENDENTE: o padrão da casa é fonte self-hosted em recursos/design-system/sistema/fonts/.
+     Os dois funis em produção também usam o CDN; a migração é conjunta, depois de 30/07. -->
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./estilo.css">
+</head>
+<body>
+
+<header class="topo">
+  <div class="container topo-linha">
+    <span class="marca">Master&nbsp;Academy</span>
+    <span class="marca-sub">Reforma Tributária no Agro</span>
+  </div>
+</header>
+
+<main class="container" id="app">
+
+  <!-- ══ ABERTURA ══════════════════════════════════════════════════════════ -->
+  <section class="etapa etapa--hero" id="etapa-abertura">
+    <p class="eyebrow">Simulação gratuita · 2 minutos</p>
+    <h1 tabindex="-1" data-foco>Quanto a Reforma Tributária vai pesar na sua atividade rural?</h1>
+    <p class="chamada">
+      Responda quatro perguntas com os números do seu último ano e veja a conta:
+      Imposto de Renda, IBS/CBS e como o resultado muda se você for cooperado,
+      contribuinte ou passar da faixa obrigatória.
+    </p>
+
+    <div class="portas">
+      <button type="button" class="porta" id="porta-chat">
+        <span class="porta-titulo">Conversar com o assistente</span>
+        <span class="porta-desc">Ele pergunta, você responde do seu jeito.</span>
+      </button>
+      <button type="button" class="porta" id="porta-formulario">
+        <span class="porta-titulo">Preencher direto</span>
+        <span class="porta-desc">Quatro campos, sem conversa.</span>
+      </button>
+    </div>
+
+    <p class="aviso" id="aviso-validacao" hidden>
+      <strong>Versão de aprovação.</strong> O cálculo é o real — pode conferir
+      com os seus números. O que está desligado aqui é o assistente de conversa
+      e a gravação dos contatos, que entram junto com a publicação.
+    </p>
+  </section>
+
+  <!-- ══ CONVERSA ══════════════════════════════════════════════════════════ -->
+  <section class="etapa" id="etapa-chat" hidden>
+    <h2 class="etapa-titulo" tabindex="-1" data-foco>Vamos aos seus números</h2>
+
+    <div class="conversa">
+      <div id="transcricao" class="transcricao" role="log" aria-live="polite"
+           aria-label="Conversa com o assistente"></div>
+
+      <p class="digitando" id="chat-digitando" hidden>
+        <span></span><span></span><span></span>
+        <span class="sr-only">O assistente está escrevendo</span>
+      </p>
+
+      <form id="form-chat" class="linha-envio" novalidate>
+        <label class="sr-only" for="msg">Sua resposta</label>
+        <input id="msg" name="msg" type="text" autocomplete="off"
+               placeholder="Escreva aqui…" enterkeyhint="send">
+        <button type="submit" class="botao botao--primario">Enviar</button>
+      </form>
+    </div>
+
+    <p class="progresso" id="chat-progresso" aria-live="polite"></p>
+    <button type="button" class="link" id="prefiro-formulario">
+      Prefiro preencher um formulário
+    </button>
+  </section>
+
+  <!-- ══ FORMULÁRIO DIRETO ═════════════════════════════════════════════════ -->
+  <section class="etapa" id="etapa-form" hidden>
+    <h2 class="etapa-titulo" tabindex="-1" data-foco>Seus números do último ano</h2>
+
+    <p class="aviso" id="aviso-degradacao" hidden>
+      O assistente ficou indisponível. Nada se perdeu — é só completar abaixo.
+    </p>
+
+    <form id="form-fiscal" class="formulario" novalidate>
+      <div class="campo">
+        <label for="receitas">Receita bruta anual</label>
+        <input id="receitas" name="receitas" type="text" inputmode="decimal"
+               placeholder="R$ 500.000,00" autocomplete="off">
+        <p class="campo-dica">Tudo o que entrou com a atividade rural no ano.</p>
+        <p class="campo-erro" id="erro-receitas" role="alert"></p>
+      </div>
+
+      <div class="campo">
+        <label for="despesas">Despesas no ano</label>
+        <input id="despesas" name="despesas" type="text" inputmode="decimal"
+               placeholder="R$ 200.000,00" autocomplete="off">
+        <p class="campo-dica">Insumos, mão de obra, manutenção. Use 0 se não houver.</p>
+        <p class="campo-erro" id="erro-despesas" role="alert"></p>
+      </div>
+
+      <fieldset class="campo campo--escolha">
+        <legend>Você é cooperado?</legend>
+        <div class="escolhas">
+          <label class="escolha">
+            <input type="radio" name="cooperativa" value="nao" checked> Não
+          </label>
+          <label class="escolha">
+            <input type="radio" name="cooperativa" value="sim"> Sim
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="campo campo--escolha">
+        <legend>Você é contribuinte de IBS/CBS?</legend>
+        <div class="escolhas">
+          <label class="escolha">
+            <input type="radio" name="contribuinte" value="nao" checked> Não
+          </label>
+          <label class="escolha">
+            <input type="radio" name="contribuinte" value="sim"> Sim
+          </label>
+        </div>
+        <p class="campo-dica">
+          Acima de R$ 3,6 milhões de receita isso deixa de ser escolha — a
+          simulação já considera.
+        </p>
+      </fieldset>
+
+      <button type="submit" class="botao botao--primario">Continuar</button>
+    </form>
+  </section>
+
+  <!-- ══ CONTATO (portão) ══════════════════════════════════════════════════ -->
+  <section class="etapa" id="etapa-contato" hidden>
+    <h2 class="etapa-titulo" tabindex="-1" data-foco>Para onde enviamos o resultado?</h2>
+    <p class="chamada chamada--curta">
+      A conta já está pronta. Deixe seu contato para receber uma cópia e a
+      leitura do que ela significa.
+    </p>
+
+    <form id="form-contato" class="formulario" novalidate>
+      <div class="campo">
+        <label for="nome">Nome</label>
+        <input id="nome" name="nome" type="text" autocomplete="name">
+        <p class="campo-erro" id="erro-nome" role="alert"></p>
+      </div>
+
+      <div class="campo">
+        <label for="email">E-mail</label>
+        <input id="email" name="email" type="email" autocomplete="email"
+               inputmode="email">
+        <p class="campo-erro" id="erro-email" role="alert"></p>
+      </div>
+
+      <div class="campo">
+        <label for="whatsapp">WhatsApp</label>
+        <input id="whatsapp" name="whatsapp" type="tel" autocomplete="tel"
+               inputmode="tel" placeholder="(54) 99999-9999">
+        <p class="campo-erro" id="erro-whatsapp" role="alert"></p>
+      </div>
+
+      <!-- Honeypot. Fora do fluxo de foco e invisível para leitor de tela.
+           Preenchido = bot; quem descarta é o n8n, em silêncio. -->
+      <div class="ardil" aria-hidden="true">
+        <label for="empresa_site">Site da empresa</label>
+        <input id="empresa_site" name="empresa_site" type="text"
+               tabindex="-1" autocomplete="off">
+      </div>
+
+      <div class="campo campo--consent">
+        <label class="consent">
+          <input type="checkbox" id="consentimento" name="consentimento">
+          <span id="rotulo-consentimento">
+            Concordo em receber o resultado desta simulação e comunicações da
+            Master Academy sobre a Reforma Tributária no agro, e autorizo o uso
+            dos meus dados para esse fim. Posso pedir a exclusão a qualquer momento.
+          </span>
+        </label>
+        <p class="campo-erro" id="erro-consentimento" role="alert"></p>
+      </div>
+
+      <button type="submit" class="botao botao--primario">Ver meu resultado</button>
+      <button type="button" class="link" id="voltar-dados">Voltar e revisar meus números</button>
+    </form>
+  </section>
+
+  <!-- ══ RESULTADO ═════════════════════════════════════════════════════════ -->
+  <section class="etapa" id="etapa-resultado" hidden>
+    <div id="resultado">
+      <div class="cartao-resultado">
+        <div id="resultado-abertura" tabindex="-1" data-foco></div>
+        <div id="resultado-parcelas" class="parcelas"></div>
+      </div>
+
+      <details class="memoria-caixa">
+        <summary>Como chegamos nesse número</summary>
+        <div id="resultado-memoria"></div>
+      </details>
+
+      <div id="resultado-comparacao" class="comparacao"></div>
+    </div>
+
+    <aside class="cta">
+      <h2>Esse número muda conforme a decisão que você toma agora</h2>
+      <p>
+        A Master Academy formou mais de mil produtores e profissionais do agro
+        na leitura prática da Reforma Tributária. O próximo passo é entender
+        qual cenário é possível para você — e o que precisa ser feito para chegar lá.
+      </p>
+      <a class="botao botao--primario" href="https://cursos.academymaster.com.br/reforma-tributaria">
+        Conhecer o curso
+      </a>
+    </aside>
+  </section>
+
+</main>
+
+<footer class="rodape">
+  <div class="container">
+    <p class="disclaimer">
+      <strong>Esta é uma simulação estimativa e não constitui consultoria
+      tributária.</strong> O resultado depende de informações que você declarou
+      e de premissas gerais; a apuração real varia conforme a sua situação
+      específica. Consulte seu contador antes de tomar qualquer decisão.
+    </p>
+    <p class="base-legal">
+      <!-- TODO(bloqueante para publicar): citar aqui o ano-base da tabela de
+           IRPF e a base legal do IBS/CBS e da redução do agro, depois da
+           validação fiscal. Ver README.md §Pendências. -->
+      Premissas: tabela progressiva do IRPF sobre a base apurada, base limitada
+      a 20% da receita bruta, IBS/CBS de 28% com redução de 60% para a atividade
+      rural e enquadramento obrigatório acima de R$&nbsp;3,6 milhões de receita.
+    </p>
+    <p class="assinatura">Master Academy · academymaster.com.br</p>
+  </div>
+</footer>
+
+<script src="./app/atribuicao.js"></script>
+<script type="module" src="./app/app.js"></script>
+</body>
+</html>

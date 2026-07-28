@@ -1,0 +1,39 @@
+/* Master Academy — cores. Fonte dos valores (padrao-design-system.md).
+   Contraste medido: ver design-system.md §Acessibilidade.
+   REGRA DURA: --green e FUNDO, nunca tinta. Sobre verde vai --navy (7,36:1).
+   Branco sobre verde = 2,25:1 e REPROVA. */
+:root {
+  /* marca */
+  --navy:        #001f3f;
+  --navy-mid:    #0a2f5c;
+  --navy-deep:   #00111f;
+  --green:       #37c708;
+  --green-dark:  #279b06;
+  --green-soft:  #eaf7e2;
+  --gold:        #c8a24a;   /* PROVISORIO: derivado da descricao, nao amostrado da logo */
+
+  /* neutros */
+  --white:       #ffffff;
+  --off-white:   #f3f6fa;
+  --ink-card:    #fbfcfe;
+
+  /* texto */
+  --text:        #11203a;
+  --text-muted:  #56657d;
+  --on-dark:       rgba(255, 255, 255, .94);
+  --on-dark-soft:  rgba(255, 255, 255, .68);
+  --on-dark-faint: rgba(255, 255, 255, .45);  /* so >=18,66px/bold ou UI */
+
+  /* linhas */
+  --hairline-dark:  rgba(255, 255, 255, .14);
+  --hairline-light: rgba(17, 32, 58, .09);
+
+  /* estado */
+  --danger:      #e11d2e;
+  --danger-soft: #fdecec;
+
+  /* gradientes */
+  --grad-dark: radial-gradient(125% 125% at 80% 0%, #0a2f5c 0%, #001a36 46%, #00111f 100%);
+  --grad-navy: linear-gradient(155deg, #06294d 0%, #001124 100%);
+  --grad-cta:  radial-gradient(120% 130% at 50% -10%, #0e4078 0%, #001f3f 48%, #00101d 100%);
+}

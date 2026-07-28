@@ -1,0 +1,37 @@
+/* Master Academy — entrada unica do design system.
+   O ativo importa SO este arquivo e nunca redeclara hex localmente. */
+@import './colors.css';
+@import './typography.css';
+@import './spacing.css';
+@import './effects.css';
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  color: var(--text);
+  background: var(--white);
+}
+h1, h2, h3, .h1, .h2, .h3 {
+  font-family: var(--font-head);
+  line-height: var(--lh-tight);
+}
+h1, .h1 { font-size: var(--fs-3xl); }
+h2, .h2 { font-size: var(--fs-2xl); }
+h3, .h3 { font-size: var(--fs-xl); }
+
+/* Foco visivel e global. Nao remover outline sem repor anel equivalente. */
+:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
