@@ -16,18 +16,26 @@
 export const EM_DESENVOLVIMENTO =
   ['localhost', '127.0.0.1'].includes(location.hostname);
 
-/* Host de validação: o cliente abre para aprovar, e ali NADA dispara POST de
-   verdade — nem lead, nem chamada de IA que custe token da Master.
+/* Produção é uma LISTA DE HOSTS EXATOS, e o resto é validação.
 
-   ⚠️ `*.vercel.app` está nesta lista, e isso tem consequência: enquanto a
-   ferramenta não tiver domínio próprio, TODO deploy é de validação. É o padrão
-   seguro — falha para "não coleta e não gasta", nunca para o contrário.
-   **Quando o domínio definitivo entrar, esta linha precisa mudar**, senão a
-   produção continua muda. Se a decisão for manter uma URL `vercel.app` em
-   produção, trocar por uma checagem do host exato. */
+   A inversão importa. Enquanto a regra foi "`*.vercel.app` é validação", cada
+   preview de branch ficava seguro de graça — mas a produção também, porque ela
+   mora num `vercel.app`. Listar o host exato resolve os dois lados: a URL de
+   produção coleta, e todo preview (`...-git-<branch>-....vercel.app`) continua
+   sem gravar contato nem gastar token.
+
+   Em qualquer host fora desta lista a página entra em modo de aprovação: o
+   cálculo é real, o assistente fica desligado e nenhum contato é gravado. O
+   padrão continua falhando para "não coleta e não gasta".
+
+   ⚠️ **Domínio novo tem que entrar aqui**, senão ele nasce mudo. */
+const HOSTS_DE_PRODUCAO = [
+  'calculadora-master-academy.vercel.app',
+  'calculadora.academymaster.com.br',
+];
+
 export const EM_VALIDACAO =
-  location.hostname.endsWith('github.io')
-  || location.hostname.endsWith('.vercel.app');
+  !EM_DESENVOLVIMENTO && !HOSTS_DE_PRODUCAO.includes(location.hostname);
 
 const BASE = EM_DESENVOLVIMENTO
   ? 'http://localhost:5678'
