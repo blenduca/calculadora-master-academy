@@ -146,10 +146,16 @@
 
   <!-- ══ CONTATO (portão) ══════════════════════════════════════════════════ -->
   <section class="etapa" id="etapa-contato" hidden>
-    <h2 class="etapa-titulo" tabindex="-1" data-foco>Para onde enviamos o resultado?</h2>
+    <!-- ⚠️ NADA AQUI PODE PROMETER ENVIO. O fluxo `MasterAcademy | Diagnostico |
+         Lead` grava na planilha e para: não existe nó de e-mail. Enquanto isso
+         for verdade, o título, a chamada e o consentimento falam de CONTATO, e
+         o resultado aparece na tela seguinte. Quando o envio existir, os três
+         voltam a falar de envio — e o texto do consentimento é versionado, não
+         editado por cima (ver README §Consentimento). -->
+    <h2 class="etapa-titulo" tabindex="-1" data-foco>Só falta o seu contato</h2>
     <p class="chamada chamada--curta">
-      A conta já está pronta. Deixe seu contato para receber uma cópia e a
-      leitura do que ela significa.
+      A conta já está pronta e aparece na próxima tela. Deixe seu contato para a
+      Master Academy conversar com você sobre o seu cenário.
     </p>
 
     <form id="form-contato" class="formulario" novalidate>
@@ -184,10 +190,11 @@
       <div class="campo campo--consent">
         <label class="consent">
           <input type="checkbox" id="consentimento" name="consentimento">
+          <!-- consentimento v2 · 2026-07-28 -->
           <span id="rotulo-consentimento">
-            Concordo em receber o resultado desta simulação e comunicações da
-            Master Academy sobre a Reforma Tributária no agro, e autorizo o uso
-            dos meus dados para esse fim. Posso pedir a exclusão a qualquer momento.
+            Concordo em ser contatado pela Master Academy sobre esta simulação e
+            sobre a Reforma Tributária no agro, e autorizo o uso dos meus dados
+            para esse fim. Posso pedir a exclusão a qualquer momento.
           </span>
         </label>
         <p class="campo-erro" id="erro-consentimento" role="alert"></p>

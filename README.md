@@ -25,6 +25,21 @@ acrescentado lá**, senão nasce mudo.
 **Retenção de lead: 24 meses.** Pedido de exclusão tem que chegar à planilha,
 não só ao CRM.
 
+## 🚨 Autoria do commit
+
+A Vercel confere o **autor do commit** e, no plano Hobby, recusa qualquer autor
+que não seja o dono do projeto (`Deployment was blocked...`). O deployment
+falha e o botão **Redeploy** só reafirma o último build bem-sucedido — o site
+fica no código velho sem erro visível.
+
+Commit aqui tem que sair como **`suporte@blenduca.com.br`**. O config local
+deste repo já garante isso; se ele for reclonado, refazer:
+
+```bash
+git config user.name  "suporte"
+git config user.email "suporte@blenduca.com.br"
+```
+
 ## Proteção
 
 Repositório **privado**. `noindex` na meta e no cabeçalho `X-Robots-Tag`,
@@ -33,4 +48,4 @@ mais `robots.txt` — o link não entra em busca.
 ---
 
 Origem: `clientes/cliente-master-academy/3-produto-escalavel/calculadora-reforma-tributaria`
-Impressão do conteúdo publicado: `b02b667313b8dd74`
+Impressão do conteúdo publicado: `6dfa55e8343e7b63`
