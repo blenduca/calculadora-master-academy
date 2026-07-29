@@ -137,6 +137,48 @@ export function quadroAplicavel({ receitas, cooperativa, contribuinte }) {
   );
 }
 
+/* Por que o total deu zero. São três motivos diferentes, e a tela precisa
+   distinguir: "você não informou receita" e "sua base é isenta" não são a mesma
+   notícia, e mostrar R$ 0,00 sem dizer qual é dos dois é o que faz o resultado
+   parecer defeito.
+
+   Devolve null quando há imposto a pagar. */
+export function motivoDeZero(dadosBase, total) {
+  if (total > 0) return null;
+  if (!(dadosBase.receitas > 0)) return 'sem_receita';
+  if (dadosBase.liquido <= 0) return 'sem_resultado';   /* despesas ≥ receitas */
+  return 'abaixo_da_faixa';                             /* base < 1ª faixa do IRPF */
+}
+
+/* O que dá SENTIDO ao número. Um valor de imposto sozinho não diz nada: R$ 27
+   mil é muito ou pouco? A resposta está no que a ferramenta já calcula — a
+   mesma pessoa, os mesmos números, enquadramentos diferentes.
+
+   ⚠️ Comparar NÃO é recomendar. Ser cooperado ou contribuinte não é chave que
+   se liga: tem consequência de negócio. Por isso aqui só saem fatos (faixa,
+   diferença, posição), e a tela fala de "quanto o enquadramento pesa", nunca de
+   "quanto você está perdendo". */
+export function compararCenarios(quadros, receitas) {
+  const totais = quadros.map((q) => q.total);
+  const meu = quadros.find((q) => q.aplicavel);
+  const minimo = Math.min(...totais);
+  const maximo = Math.max(...totais);
+  return {
+    minimo,
+    maximo,
+    /* O que a escolha de enquadramento vale por ano, nos números desta pessoa. */
+    amplitude: centavos(maximo - minimo),
+    /* Quanto o cenário da pessoa está acima do mais barato possível. */
+    acima_do_minimo: centavos(meu.total - minimo),
+    sou_o_mais_barato: meu.total === minimo,
+    sou_o_mais_caro: meu.total === maximo && maximo > minimo,
+    /* Âncora que o número sozinho não tem: fração da própria receita. */
+    peso_na_receita: receitas > 0 ? meu.total / receitas : null,
+    /* Todos iguais = o enquadramento não muda nada neste caso. */
+    enquadramento_indiferente: maximo === minimo,
+  };
+}
+
 /* A porta de entrada única. Devolve a base, o quadro da pessoa e os cinco
    cenários lado a lado — é a comparação que transforma o número em argumento. */
 export function diagnosticar({ receitas, despesas, cooperativa, contribuinte }) {
@@ -148,8 +190,17 @@ export function diagnosticar({ receitas, despesas, cooperativa, contribuinte }) 
   };
   const dadosBase = calcularBase(entradas.receitas, entradas.despesas);
   const aplicavel = quadroAplicavel(entradas);
+  const quadros = QUADROS.map((q) => ({
+    ...calcularQuadro(q, dadosBase),
+    aplicavel: q.id === aplicavel.id,
+  }));
+  const meu = quadros.find((q) => q.aplicavel);
   return {
     entradas,
+    /* Faixa de isenção do IRPF — a tela precisa dela para explicar o zero. */
+    faixa_isencao: TABELA_IRPF[1].de,
+    motivo_zero: motivoDeZero(dadosBase, meu.total),
+    comparacao: compararCenarios(quadros, entradas.receitas),
     base: {
       liquido: centavos(dadosBase.liquido),
       teto: centavos(dadosBase.teto),
@@ -160,9 +211,6 @@ export function diagnosticar({ receitas, despesas, cooperativa, contribuinte }) 
       ded_irpf: dadosBase.faixa.ded,
     },
     quadro_aplicavel: aplicavel.id,
-    quadros: QUADROS.map((q) => ({
-      ...calcularQuadro(q, dadosBase),
-      aplicavel: q.id === aplicavel.id,
-    })),
+    quadros,
   };
 }

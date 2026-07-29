@@ -376,8 +376,26 @@ h1 { margin: 0 0 var(--space-6); max-width: 20ch; letter-spacing: .01em; }
   color: var(--green);
   font-variant-numeric: tabular-nums;
 }
+/* A leitura do número. É o que responde "isso é muito ou pouco?" — sem ela, o
+   valor sozinho não diz nada, que foi o retorno da cliente. Fica logo abaixo do
+   número, antes do enquadramento, porque é a primeira pergunta de quem lê. */
+.total-leitura {
+  max-width: 46ch;
+  margin: var(--space-5) 0 0;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-light);
+  line-height: var(--lh-base);
+  color: var(--on-dark);
+}
+.total-leitura strong {
+  font-weight: var(--fw-semibold);
+  color: var(--on-dark);
+}
+
 .total-legenda {
-  margin: var(--space-2) 0 0;
+  margin: var(--space-5) 0 0;
+  padding-top: var(--space-4);
+  border-top: var(--fio) solid var(--hairline-dark);
   font-size: var(--fs-sm);
   color: var(--on-dark-soft);
 }
