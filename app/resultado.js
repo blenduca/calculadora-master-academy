@@ -13,26 +13,118 @@
      usar para ganhar confiança.
    ========================================================================== */
 
-import { ALIQ_IBSCBS_CHEIA, LIMITE_RECEITA, REDUCAO_AGRO } from './calculo.js';
+import {
+  ALIQ_IBSCBS_CHEIA, LIMITE_RECEITA, REDUCAO_AGRO, centavos,
+} from './calculo.js';
 import { moedaBR, percentBR } from './formato.js';
 
 const el = (sel, raiz = document) => raiz.querySelector(sel);
 
-function linhaQuadro(q) {
-  const marcado = q.aplicavel ? ' quadro--seu' : '';
+/* O que cada cenário EXIGE, em português de quem não é contador. O rótulo
+   técnico sozinho não informa: "cooperado" não avisa que isso significa
+   integrar uma cooperativa — decisão de negócio, não opção de formulário.
+   É esta coluna que responde "não está claro a diferença dos cenários". */
+const O_QUE_EXIGE = {
+  1: 'Não integra cooperativa e não é contribuinte de IBS/CBS',
+  2: 'Não integra cooperativa e é contribuinte de IBS/CBS',
+  3: 'É associado a uma cooperativa',
+  4: 'É associado a uma cooperativa — a cooperativa zera o IBS/CBS mesmo sendo contribuinte',
+  5: 'Receita a partir de R$ 3,6 milhões: contribuinte por obrigação, não por escolha',
+};
+
+/* A célula de diferença. Sinal E palavra: cor e sinal sozinhos não são canal
+   acessível (padrao-ativos-web.md — escala divergente sempre com rótulo). */
+function celulaDiferenca(q, meu) {
+  if (q.aplicavel) return '<span class="dif dif--seu">este é o seu</span>';
+  /* Cenário que esta pessoa não pode ocupar não ganha número. Mostrar
+     "−R$ 112.000" para algo impossível é oferecer uma economia que não
+     existe — foi exatamente o defeito que a receita acima do limite expunha. */
+  if (!q.alcancavel) {
+    return '<span class="dif dif--fora">não disponível para a sua receita</span>';
+  }
+  const delta = centavos(q.total - meu.total);
+  if (delta === 0) return '<span class="dif">igual ao seu</span>';
+  const sinal = delta > 0 ? '+' : '−';
+  const palavra = delta > 0 ? 'a mais que o seu' : 'a menos que o seu';
+  return `<span class="dif">${sinal} ${moedaBR(Math.abs(delta))}
+    <small>${palavra}</small></span>`;
+}
+
+function linhaQuadro(q, meu) {
+  const classes = ['quadro'];
+  if (q.aplicavel) classes.push('quadro--seu');
+  if (!q.alcancavel) classes.push('quadro--indisponivel');
   const selo = q.aplicavel
     ? '<span class="quadro-selo">Seu enquadramento</span>'
     : '';
   return `
-    <tr class="quadro${marcado}">
+    <tr class="${classes.join(' ')}">
       <th scope="row">
         <span class="quadro-rotulo">${q.rotulo}</span>
         ${selo}
+        <small class="quadro-exige">${O_QUE_EXIGE[q.id]}</small>
       </th>
-      <td class="num">${moedaBR(q.irpf)}</td>
       <td class="num">${q.paga_ibscbs ? moedaBR(q.ibscbs) : '<span class="isento">isento</span>'}</td>
       <td class="num num--total">${moedaBR(q.total)}</td>
+      <td class="num num--dif">${celulaDiferenca(q, meu)}</td>
     </tr>`;
+}
+
+/* O bloco que a tabela sozinha não entregava. Rodando o cálculo real, os cinco
+   cenários produzem DOIS valores, e a coluna de IRPF repete o mesmo número
+   cinco vezes: a diferença inteira é o IBS/CBS. A tabela apresentava cinco
+   opções onde existe uma pergunta só.
+
+   ⚠️ Comparar não é recomendar. Aqui se nomeia o valor da diferença e o que o
+   outro cenário EXIGE — nunca "migre e economize". Ser cooperado não é regime
+   que se elege, e acima de R$ 3,6 mi não é escolha nenhuma. */
+function blocoDiferenca(d, meu) {
+  const c = d.comparacao;
+
+  if (c.cenarios_possiveis === 1) {
+    return `<p><strong>Com a sua receita, isto não é uma escolha.</strong>
+      Acima de ${moedaBR(LIMITE_RECEITA)} de receita bruta, ser contribuinte de
+      IBS/CBS passa a ser obrigatório — os outros enquadramentos da tabela não
+      estão disponíveis para você, e por isso aparecem sem comparação.</p>`;
+  }
+
+  if (c.enquadramento_indiferente) {
+    return `<p><strong>Com estes números, o enquadramento não muda o que você
+      paga.</strong> Nos ${c.cenarios_possiveis} cenários disponíveis para a sua
+      receita o total é o mesmo${
+        c.irpf_constante !== null ? ` — só Imposto de Renda, sem IBS/CBS` : ''
+      }.</p>`;
+  }
+
+  const irpf = c.irpf_constante !== null
+    ? `<p>O <strong>Imposto de Renda é o mesmo em todos os cenários:
+       ${moedaBR(c.irpf_constante)}</strong>. A única coisa que o enquadramento
+       muda é o IBS/CBS — <strong>${moedaBR(c.amplitude)} por ano</strong>.</p>`
+    : '';
+
+  const porque = meu.paga_ibscbs
+    ? `<p>Você entra na conta do IBS/CBS porque é contribuinte e não é
+       cooperado.</p>`
+    : `<p>Você não entra na conta do IBS/CBS porque
+       ${d.entradas.cooperativa
+          ? 'é cooperado — e a cooperativa zera esse imposto'
+          : 'não é contribuinte de IBS/CBS'}.</p>`;
+
+  return `
+    ${irpf}
+    ${porque}
+    <p>Quem está do outro lado dessa diferença está numa destas situações:</p>
+    <ul class="exigencias">
+      <li><strong>É associado a uma cooperativa.</strong> Não é uma opção
+        fiscal que se marca: é integrar uma cooperativa, com tudo o que isso
+        muda na operação.</li>
+      <li><strong>Não é contribuinte de IBS/CBS.</strong> Depende do regime de
+        apuração da atividade, não de uma preferência.</li>
+    </ul>
+    <p class="ressalva">⚠️ Acima de ${moedaBR(LIMITE_RECEITA)} de receita isso
+      deixa de ser escolha: contribuinte passa a ser obrigatório.
+      <strong>Esta ferramenta compara cenários, não recomenda enquadramento</strong>
+      — o que cabe no seu caso é conversa com o seu contador.</p>`;
 }
 
 /* Explica um resultado zerado. Foi o retorno da cliente que trouxe isto: a tela
@@ -86,23 +178,32 @@ function explicarValor(d, meu) {
        ${moedaBR(d.entradas.receitas)} que você informou`
     : '';
 
+  /* Único cenário alcançável: não há comparação honesta a fazer. Antes desta
+     guarda a tela dizia a quem fatura 5 milhões que estava "R$ 112.000 acima do
+     menor cenário possível" — comparando com quadros que a receita dele torna
+     impossíveis. Número certo, frase falsa. */
+  if (c.cenarios_possiveis === 1) {
+    return `${peso ? `Equivale a ${peso}. ` : ''}Com a sua receita, ser
+      contribuinte de IBS/CBS é obrigatório — <strong>não há outro
+      enquadramento a comparar</strong>.`;
+  }
   if (c.enquadramento_indiferente) {
-    return `${peso ? `Equivale a ${peso}. ` : ''}Nos cinco cenários da tabela
-      abaixo o resultado é o mesmo: com estes números, o enquadramento não muda
-      o que você paga.`;
+    return `${peso ? `Equivale a ${peso}. ` : ''}Nos ${c.cenarios_possiveis}
+      cenários disponíveis para a sua receita o resultado é o mesmo: com estes
+      números, o enquadramento não muda o que você paga.`;
   }
   if (c.sou_o_mais_barato) {
     return `${peso ? `Equivale a ${peso}. ` : ''}<strong>É o menor valor entre os
-      cinco cenários.</strong> Nos demais, com os seus mesmos números, o imposto
-      chega a ${moedaBR(c.maximo)} — uma diferença de
+      cenários disponíveis para você.</strong> Nos demais, com os seus mesmos
+      números, o imposto chega a ${moedaBR(c.maximo)} — uma diferença de
       ${moedaBR(c.amplitude)} por ano.`;
   }
   return `${peso ? `Equivale a ${peso}. ` : ''}Com os seus mesmos números, o
     imposto vai de <strong>${moedaBR(c.minimo)}</strong> a
     <strong>${moedaBR(c.maximo)}</strong> conforme o enquadramento
-    ${c.sou_o_mais_caro ? '— e o seu é o mais caro dos cinco' : ''}.
+    ${c.sou_o_mais_caro ? '— e o seu é o mais caro dos que você alcança' : ''}.
     O seu está <strong>${moedaBR(c.acima_do_minimo)} acima</strong> do menor
-    cenário possível.`;
+    cenário disponível para você.`;
 }
 
 export function renderResultado(d, { nome } = {}) {
@@ -166,17 +267,26 @@ export function renderResultado(d, { nome } = {}) {
       contribuinte deixa de ser escolha.
     </p>`;
 
+  /* A coluna de IRPF SAIU da tabela de propósito: ela repetia o mesmo valor em
+     todas as linhas, e uma coluna constante esconde a diferença em vez de
+     mostrá-la. O valor é declarado uma vez no bloco acima (e aparece inteiro
+     no cartão de parcelas). No lugar dela entra a diferença, que é o que a
+     pessoa estava tendo de calcular de cabeça. */
   el('#resultado-comparacao', alvo).innerHTML = `
+    <h3 class="comparacao-titulo">O que muda de um cenário para o outro</h3>
+    <div class="comparacao-leitura">${blocoDiferenca(d, meu)}</div>
+    <div class="tabela-rolagem">
     <table class="tabela-quadros">
       <caption>O mesmo produtor, os mesmos números, enquadramentos diferentes</caption>
       <thead>
         <tr>
           <th scope="col">Cenário</th>
-          <th scope="col" class="num">IRPF</th>
           <th scope="col" class="num">IBS / CBS</th>
-          <th scope="col" class="num">Total</th>
+          <th scope="col" class="num">Total no ano</th>
+          <th scope="col" class="num">Diferença para o seu</th>
         </tr>
       </thead>
-      <tbody>${d.quadros.map(linhaQuadro).join('')}</tbody>
-    </table>`;
+      <tbody>${d.quadros.map((q) => linhaQuadro(q, meu)).join('')}</tbody>
+    </table>
+    </div>`;
 }

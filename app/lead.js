@@ -38,10 +38,17 @@ function gravarFila(lista) {
 
 function enfileirar(payload) {
   const lista = lerFila();
-  /* `event_id` deduplica: reenviar o mesmo lead não cria linha dobrada na
-     planilha, desde que o fluxo n8n respeite a chave. */
-  if (lista.some((p) => p.event_id === payload.event_id)) return;
-  lista.push(payload);
+  /* `event_id` deduplica: um lead nunca ocupa duas vagas na fila, e o fluxo
+     n8n usa a mesma chave para não dobrar a linha na planilha.
+
+     ⚠️ SUBSTITUI, não ignora. Quando a pessoa corrige os números, o payload
+     novo reusa o `event_id` de propósito — é o que faz a planilha atualizar a
+     linha em vez de criar outra. Se aqui a repetição fosse descartada, o envio
+     que falhou com os números ERRADOS ficaria na fila e seria ele o reenviado
+     depois: a correção sumiria em silêncio, e só o valor errado chegaria. */
+  const jaNaFila = lista.findIndex((p) => p.event_id === payload.event_id);
+  if (jaNaFila >= 0) lista[jaNaFila] = payload;
+  else lista.push(payload);
   gravarFila(lista);
   console.warn('[lead] enfileirado para reenvio:', payload.event_id);
 }
@@ -52,7 +59,9 @@ function desenfileirar(eventId) {
 
 /* O contrato de captação (`padrao-ativos-web.md`). Campo que não se aplica vai
    como '' em vez de sumir — chave ausente quebra o fluxo n8n a jusante. */
-export function montarPayload({ contato, diagnostico, origem, cta, consentTexto }) {
+export function montarPayload({
+  contato, diagnostico, origem, cta, consentTexto, eventId,
+}) {
   const attr = (typeof window.pzAtribuicao === 'function') ? window.pzAtribuicao() : null;
   const plana = (typeof window.pzAtribuicaoPlana === 'function')
     ? window.pzAtribuicaoPlana(attr) : {};
@@ -66,8 +75,14 @@ export function montarPayload({ contato, diagnostico, origem, cta, consentTexto 
     origem: origem || '',
     cta: cta || '',
 
-    /* Deduplica quando a mesma conversão chega por dois caminhos. */
-    event_id: crypto.randomUUID(),
+    /* Deduplica quando a mesma conversão chega por dois caminhos.
+
+       Recebido de fora quando a pessoa CORRIGE os números depois de já ter
+       visto o resultado: repetindo o `event_id`, o nó `appendOrUpdate` do n8n
+       sobrescreve a linha existente na planilha. Duas linhas fariam a Fabiélli
+       ligar para o mesmo produtor com dois diagnósticos contraditórios — e a
+       primeira, a errada, é a que aparece antes. */
+    event_id: eventId || crypto.randomUUID(),
     enviado_em: new Date().toISOString(),
 
     nome: contato.nome || '',

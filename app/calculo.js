@@ -52,6 +52,10 @@ export const TETO_SOBRE_RECEITA = 0.20;
    ela declara. Nada no cálculo depende da numeração — a regra de quem paga é
    derivada das condições, não do número. Os rótulos abaixo é que são mostrados
    à pessoa; o número é secundário e deve ser confirmado com a Cirlei. */
+/* O quadro da faixa obrigatória. Nomeado porque a regra de alcançabilidade
+   depende dele, e `QUADROS[4]` no meio de uma condição não se lê. */
+export const QUADRO_OBRIGATORIO = 5;
+
 export const QUADROS = [
   { id: 1, cooperativa: false, contribuinte: false,
     rotulo: 'Não cooperado · não contribuinte de IBS/CBS' },
@@ -130,11 +134,28 @@ export function calcularQuadro(quadro, dadosBase) {
    A faixa obrigatória vence qualquer combinação: acima de R$ 3,6 mi de receita
    não existe escolha a fazer. */
 export function quadroAplicavel({ receitas, cooperativa, contribuinte }) {
-  if ((Number(receitas) || 0) >= LIMITE_RECEITA) return QUADROS[4];
+  if ((Number(receitas) || 0) >= LIMITE_RECEITA) {
+    return QUADROS.find((q) => q.id === QUADRO_OBRIGATORIO);
+  }
   return QUADROS.find(
     (q) => q.cooperativa === Boolean(cooperativa)
         && q.contribuinte === Boolean(contribuinte),
   );
+}
+
+/* Quais cenários EXISTEM para esta pessoa — coisa diferente de qual é o dela.
+   Acima do limite, ser contribuinte deixa de ser escolha: os quatro quadros
+   opcionais não são alternativas mais baratas, são situações impossíveis.
+   Abaixo do limite, o inverso — a faixa obrigatória é que não se alcança.
+
+   Sem esta distinção a comparação dizia a quem fatura 5 milhões que ele estava
+   "R$ 112.000 acima do menor cenário possível" — um cenário que não existe para
+   ele. Número certo, frase falsa; e é o tipo de frase que vai ao contador. */
+export function alcancavelPara(quadro, receitas) {
+  const obrigado = (Number(receitas) || 0) >= LIMITE_RECEITA;
+  return obrigado
+    ? quadro.id === QUADRO_OBRIGATORIO
+    : quadro.id !== QUADRO_OBRIGATORIO;
 }
 
 /* Por que o total deu zero. São três motivos diferentes, e a tela precisa
@@ -159,23 +180,38 @@ export function motivoDeZero(dadosBase, total) {
    diferença, posição), e a tela fala de "quanto o enquadramento pesa", nunca de
    "quanto você está perdendo". */
 export function compararCenarios(quadros, receitas) {
-  const totais = quadros.map((q) => q.total);
   const meu = quadros.find((q) => q.aplicavel);
+
+  /* ⚠️ Só os ALCANÇÁVEIS entram na comparação. Comparar contra um cenário que a
+     pessoa não pode ocupar produz uma diferença que ninguém captura — e a tela
+     a apresentava como distância para "o menor cenário possível". */
+  const possiveis = quadros.filter((q) => q.alcancavel);
+  const totais = possiveis.map((q) => q.total);
   const minimo = Math.min(...totais);
   const maximo = Math.max(...totais);
+
+  /* O IRPF é o mesmo nos cinco quadros — o enquadramento só mexe no IBS/CBS.
+     É o fato que faz a tabela de cinco linhas caber numa frase, e ele estava
+     escondido numa coluna que repetia o mesmo valor cinco vezes. */
+  const irpfs = new Set(quadros.map((q) => q.irpf));
+
   return {
     minimo,
     maximo,
     /* O que a escolha de enquadramento vale por ano, nos números desta pessoa. */
     amplitude: centavos(maximo - minimo),
-    /* Quanto o cenário da pessoa está acima do mais barato possível. */
+    /* Quanto o cenário da pessoa está acima do mais barato QUE ELA ALCANÇA. */
     acima_do_minimo: centavos(meu.total - minimo),
     sou_o_mais_barato: meu.total === minimo,
     sou_o_mais_caro: meu.total === maximo && maximo > minimo,
     /* Âncora que o número sozinho não tem: fração da própria receita. */
     peso_na_receita: receitas > 0 ? meu.total / receitas : null,
-    /* Todos iguais = o enquadramento não muda nada neste caso. */
+    /* Nada a escolher: ou os alcançáveis empatam, ou só existe um deles
+       (o caso de quem passou de R$ 3,6 mi). */
     enquadramento_indiferente: maximo === minimo,
+    /* Quantos cenários esta pessoa de fato pode ocupar. 1 = não é escolha. */
+    cenarios_possiveis: possiveis.length,
+    irpf_constante: irpfs.size === 1 ? meu.irpf : null,
   };
 }
 
@@ -193,6 +229,7 @@ export function diagnosticar({ receitas, despesas, cooperativa, contribuinte }) 
   const quadros = QUADROS.map((q) => ({
     ...calcularQuadro(q, dadosBase),
     aplicavel: q.id === aplicavel.id,
+    alcancavel: alcancavelPara(q, entradas.receitas),
   }));
   const meu = quadros.find((q) => q.aplicavel);
   return {

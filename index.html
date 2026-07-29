@@ -219,6 +219,19 @@
       </details>
 
       <div id="resultado-comparacao" class="comparacao"></div>
+
+      <!-- Sem isto, quem digitou um número errado só tinha o F5 — e o número
+           errado já tinha ido para a planilha. Corrigir atualiza o mesmo lead;
+           recomeçar cria outro, porque aí é outra pessoa. -->
+      <div class="refazer">
+        <p class="refazer-nota">Errou algum valor? Dá para ajustar sem começar de novo.</p>
+        <button type="button" class="botao botao--secundario" id="corrigir-numeros">
+          Corrigir meus números
+        </button>
+        <button type="button" class="link" id="recomecar">
+          Começar do zero — simular para outro produtor (apaga o que foi preenchido)
+        </button>
+      </div>
     </div>
 
     <aside class="cta">

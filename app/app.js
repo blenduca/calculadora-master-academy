@@ -27,8 +27,14 @@ const estado = {
   dados: estadoVazio(),
   historico: [],
   contato: null,
+  consentTexto: '',         /* literal, guardado para o reenvio da correção */
   diagnostico: null,
-  payload: null,            /* montado uma vez; ver `concluir` */
+  /* Identidade do lead, estável para a MESMA pessoa nesta visita. Corrigir os
+     números reaproveita este id, e o `appendOrUpdate` do n8n atualiza a linha
+     em vez de criar outra. "Começar do zero" recarrega a página, e um id novo
+     nasce junto — que é o certo, porque aí é outro produtor. */
+  eventId: null,
+  payload: null,            /* remontado a cada correção; ver `finalizar` */
   enviando: false,
 };
 
@@ -132,6 +138,52 @@ function iniciarChat() {
 
 /* ── Resultado ────────────────────────────────────────────────────────────── */
 
+/* Calcula, mostra e registra. Vive separado de `concluir` porque há DOIS
+   caminhos até aqui: a primeira passagem (que vem da etapa de contato) e a
+   correção de números (que pula o contato, porque a pessoa já entregou os dados
+   e já consentiu — pedir de novo seria atrito numa tela que ela já venceu). */
+async function finalizar(botao) {
+  if (estado.enviando) return;
+  estado.enviando = true;
+  const rotulo = botao ? botao.textContent : '';
+  if (botao) {
+    botao.textContent = 'Calculando…';
+    botao.disabled = true;
+  }
+
+  estado.diagnostico = diagnosticar(estado.dados);
+  renderResultado(estado.diagnostico, { nome: estado.contato.nome });
+  irPara('resultado');
+
+  /* Depois de mostrar, nunca antes. O registro do lead é assunto nosso.
+
+     O `event_id` nasce uma vez e sobrevive às correções: é ele que faz o n8n
+     ATUALIZAR a linha da planilha em vez de acrescentar outra. O payload, ao
+     contrário, é remontado sempre — senão a correção mostraria números novos na
+     tela e mandaria os velhos para a planilha. */
+  estado.eventId = estado.eventId || crypto.randomUUID();
+  estado.payload = montarPayload({
+    contato: estado.contato,
+    diagnostico: estado.diagnostico,
+    origem: `calculadora-${estado.modo || 'direto'}`,
+    cta: 'ver-meu-resultado',
+    consentTexto: estado.consentTexto,
+    eventId: estado.eventId,
+  });
+
+  const entrou = await enviarLead(estado.payload);
+  if (!entrou) {
+    /* Não é erro para a pessoa — é sinal para nós. O lead está na fila. */
+    console.warn('[lead] na fila local; será reenviado no próximo acesso.');
+  }
+
+  if (botao) {
+    botao.textContent = rotulo;
+    botao.disabled = false;
+  }
+  estado.enviando = false;
+}
+
 async function concluir(evento) {
   evento.preventDefault();
   if (estado.enviando) return;
@@ -142,43 +194,12 @@ async function concluir(evento) {
     return;
   }
 
-  estado.enviando = true;
-  const botao = $('#form-contato button[type="submit"]');
-  const rotulo = botao.textContent;
-  botao.textContent = 'Calculando…';
-  botao.disabled = true;
-
   estado.contato = dados;
-  estado.diagnostico = diagnosticar(estado.dados);
+  /* Literal, como manda `padrao-dados-pessoais.md`: é o que prova o que a
+     pessoa leu. Guardado porque a correção reenvia sem passar por esta tela. */
+  estado.consentTexto = consentTexto;
 
-  renderResultado(estado.diagnostico, { nome: dados.nome });
-  irPara('resultado');
-
-  /* Depois de mostrar, nunca antes. O registro do lead é assunto nosso.
-
-     O payload é montado UMA vez e guardado. `montarPayload` gera um `event_id`
-     novo a cada chamada, então remontá-lo num segundo envio criaria uma
-     segunda linha na planilha para o mesmo diagnóstico — a deduplicação por
-     `event_id` só funciona se o id for estável. Volta e alteração de números
-     zeram o payload (ver `#voltar-dados`). */
-  if (!estado.payload) {
-    estado.payload = montarPayload({
-      contato: dados,
-      diagnostico: estado.diagnostico,
-      origem: `calculadora-${estado.modo || 'direto'}`,
-      cta: 'ver-meu-resultado',
-      consentTexto,
-    });
-  }
-  const entrou = await enviarLead(estado.payload);
-  if (!entrou) {
-    /* Não é erro para a pessoa — é sinal para nós. O lead está na fila. */
-    console.warn('[lead] na fila local; será reenviado no próximo acesso.');
-  }
-
-  botao.textContent = rotulo;
-  botao.disabled = false;
-  estado.enviando = false;
+  await finalizar($('#form-contato button[type="submit"]'));
 }
 
 /* ── Ligações ─────────────────────────────────────────────────────────────── */
@@ -193,7 +214,7 @@ function ligar() {
 
   $('#form-chat').addEventListener('submit', enviarMensagem);
 
-  $('#form-fiscal').addEventListener('submit', (e) => {
+  $('#form-fiscal').addEventListener('submit', async (e) => {
     e.preventDefault();
     const { ok, dados } = lerDadosFiscais($('#form-fiscal'));
     if (!ok) {
@@ -201,15 +222,42 @@ function ligar() {
       return;
     }
     estado.dados = { ...estado.dados, ...dados };
+    /* Quem já deu o contato está CORRIGINDO, não começando: vai direto ao
+       resultado. Passar pela tela de contato de novo pediria um consentimento
+       que já foi dado e mudaria o texto consentido sem motivo. */
+    if (estado.contato) {
+      await finalizar($('#form-fiscal button[type="submit"]'));
+      return;
+    }
     irPara('contato');
   });
 
   $('#form-contato').addEventListener('submit', concluir);
   $('#voltar-dados').addEventListener('click', () => {
-    /* Números podem mudar a partir daqui — o payload guardado deixa de valer. */
+    /* Etapa de contato: o lead ainda NÃO foi enviado, então não há linha na
+       planilha para atualizar nem `event_id` a preservar. */
     estado.payload = null;
     irPara(estado.modo === 'chat' ? 'chat' : 'form');
   });
+
+  /* Corrigir: mesma pessoa, números errados. Volta para a coleta com o contato
+     e o `event_id` intactos — o reenvio sobrescreve a linha da planilha. */
+  $('#corrigir-numeros').addEventListener('click', () => {
+    estado.payload = null;
+    if (estado.dados.receitas !== null) $('#receitas').value = estado.dados.receitas;
+    if (estado.dados.despesas !== null) $('#despesas').value = estado.dados.despesas;
+    /* A correção sempre cai no formulário, mesmo para quem veio do chat:
+       reabrir a conversa para trocar um número é mais caminho do que corrigir
+       um campo, e o histórico já ficou com o valor errado. */
+    estado.modo = estado.modo === 'chat' ? 'chat' : 'formulario';
+    irPara('form');
+  });
+
+  /* Começar do zero: outro produtor. Recarregar é o reset honesto — limpa
+     conversa, campos, estado e DOM de uma vez, e o `event_id` novo garante
+     linha nova na planilha. A fila local de leads pendentes sobrevive
+     (localStorage) e é reenviada no load. */
+  $('#recomecar').addEventListener('click', () => { window.location.reload(); });
 
   mascararTelefone($('#whatsapp'));
 

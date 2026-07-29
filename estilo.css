@@ -324,6 +324,14 @@ h1 { margin: 0 0 var(--space-6); max-width: 20ch; letter-spacing: .01em; }
   background: var(--white); color: var(--navy);
   box-shadow: var(--shadow-green-hover);
 }
+/* Contornado, não verde: a ação primária da tela de resultado é o curso.
+   Corrigir números precisa ser óbvio sem competir com o CTA. */
+.botao--secundario {
+  background: var(--white);
+  color: var(--text);
+  border-color: var(--navy);
+}
+.botao--secundario:hover:not(:disabled) { background: var(--green-soft); }
 .botao:disabled { opacity: .55; cursor: progress; }
 .linha-envio .botao { padding-inline: var(--space-6); font-size: var(--fs-base); }
 
@@ -460,8 +468,37 @@ h1 { margin: 0 0 var(--space-6); max-width: 20ch; letter-spacing: .01em; }
   max-width: var(--max-leitura);
 }
 
-/* Tabela larga rola dentro do próprio container; o corpo da página nunca. */
-.comparacao { margin-top: var(--space-10); overflow-x: auto; }
+.comparacao { margin-top: var(--space-10); }
+/* Tabela larga rola dentro do próprio container; o corpo da página nunca.
+   A rolagem mora AQUI e não em `.comparacao` — senão o texto explicativo
+   acima da tabela entraria na área que rola de lado. */
+.tabela-rolagem { overflow-x: auto; }
+
+.comparacao-titulo {
+  font-family: var(--font-head);
+  font-size: var(--fs-2xl);
+  margin-bottom: var(--space-4);
+}
+/* O bloco que explica a diferença ANTES da tabela. Sem ele a pessoa tinha de
+   descobrir sozinha que, das cinco linhas, quatro repetem dois valores. */
+.comparacao-leitura {
+  max-width: var(--max-leitura);
+  margin-bottom: var(--space-8);
+  display: flex; flex-direction: column; gap: var(--space-4);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+}
+/* O espaçamento é do `gap`, não das margens. Flex NÃO colapsa margem: com as
+   duas coisas ligadas, cada intervalo virava 16+16+16 = 48px. */
+.comparacao-leitura > * { margin-block: 0; }
+.exigencias { padding-left: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3); }
+.comparacao-leitura .ressalva {
+  padding: var(--space-4);
+  background: var(--off-white);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
 .tabela-quadros {
   width: 100%; min-width: 34rem;
   border-collapse: collapse;
@@ -509,6 +546,47 @@ h1 { margin: 0 0 var(--space-6); max-width: 20ch; letter-spacing: .01em; }
   color: var(--navy);
   border-radius: var(--radius-pill);
 }
+/* O que o cenário exige na prática. "Cooperado" sozinho não diz a ninguém que
+   isso significa integrar uma cooperativa. */
+.quadro-exige {
+  display: block;
+  margin-top: var(--space-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+  color: var(--text-muted);
+  max-width: 22rem;
+}
+/* Cenário que esta receita torna impossível. Esmaecido E dito por extenso na
+   coluna de diferença — cor sozinha não é canal acessível. */
+.quadro--indisponivel { opacity: .55; }
+.quadro--indisponivel .num--total,
+.quadro--indisponivel .num { text-decoration: line-through; }
+.quadro--indisponivel .num--dif { text-decoration: none; }
+
+.dif { display: block; font-weight: var(--fw-semibold); }
+.dif small {
+  display: block;
+  font-weight: var(--fw-regular);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.dif--seu, .dif--fora {
+  font-weight: var(--fw-regular);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  text-transform: none;
+}
+
+/* ── Refazer a simulação ───────────────────────────────────────────────── */
+
+.refazer {
+  margin-top: var(--space-10);
+  padding-top: var(--space-8);
+  border-top: var(--fio) solid var(--hairline-light);
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: var(--space-3);
+}
+.refazer-nota { font-size: var(--fs-sm); color: var(--text-muted); }
 
 .cta {
   margin-top: var(--space-12);
