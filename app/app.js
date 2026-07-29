@@ -81,6 +81,22 @@ function digitando(ligado) {
   if (!ligado) $('#msg').focus();
 }
 
+/* Quanto tempo se espera pelo assistente antes de desistir dele.
+
+   ⚠️ Sem isto a degradação abaixo NUNCA dispara no pior caso. `turno` cai no
+   catch quando a chamada FALHA — mas conexão pendurada não falha: o navegador
+   espera minutos antes de desistir sozinho, e nesse tempo a pessoa só vê
+   "digitando…", sem erro, sem formulário, sem saída. Foi exatamente o que
+   aconteceu com o n8n fora do ar: o fallback existia e ficou inerte.
+   Prazo estourado é tratado como qualquer outro erro — cai para o formulário. */
+const PRAZO_CHAT_MS = 20_000;
+
+function prazoDe(ms) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return { sinal: ctrl.signal, cancelar: () => clearTimeout(timer) };
+}
+
 /* Degrada para o formulário sem perder o que já foi coletado. */
 function cairParaFormulario(motivo) {
   console.warn('[chat] degradando para formulário:', motivo);
@@ -101,8 +117,9 @@ async function enviarMensagem(evento) {
   $('#msg').value = '';
   digitando(true);
 
+  const prazo = prazoDe(PRAZO_CHAT_MS);
   try {
-    const r = await turno(estado.historico);
+    const r = await turno(estado.historico, { sinal: prazo.sinal });
     estado.historico.push({ role: 'assistant', content: r.fala });
     estado.dados = mesclar(estado.dados, r.campos);
     bolha('assistente', r.fala);
@@ -119,6 +136,7 @@ async function enviarMensagem(evento) {
       + 'Sem drama — dá para preencher direto, é rápido.');
     setTimeout(() => cairParaFormulario(erro.message), 900);
   } finally {
+    prazo.cancelar();
     digitando(false);
   }
 }
