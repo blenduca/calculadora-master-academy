@@ -182,15 +182,35 @@ export function quadroAplicavel({ receitas, cooperativa, contribuinte }) {
 
    ⚠️ O crédito está sendo calculado sobre a DESPESA TOTAL informada, não só
    sobre os insumos efetivamente tributados. É simplificação declarada — está
-   escrita na página e registrada no doc de validação. */
-export function calcularPj({ receitas, despesas }) {
+   escrita na página e registrada no doc de validação.
+
+   COOPERATIVA (30/07/2026). Quem é associado a cooperativa não tem IBS/CBS aqui
+   tampouco: a cooperativa responde pelo imposto, e o que sobra para a PJ é só
+   IRPJ + CSLL sobre o faturamento. Duas escolhas dentro disso:
+
+   · O bloco vai a zero INTEIRO — débito, crédito e crédito acumulado. Zerar só
+     o débito deixaria o crédito das despesas inteiro como saldo credor, e todo
+     cooperado veria na tela um "crédito acumulado" de seis dígitos: promessa de
+     compensação futura que ninguém validou.
+   · A cooperativa é INCONDICIONAL, ao contrário da PF, onde o degrau de
+     R$ 3,6 mi vence a cooperativa e torna a pessoa contribuinte obrigatória.
+     Consequência: acima do limite os dois cartões divergem — a PF paga, a PJ
+     não. É decisão, não defeito, e a tela declara. Há teste-âncora para ela.
+
+   ⚠️ Esta regra é POSTERIOR à liberação da Cirlei de 28/07, que cobre a PF. Por
+   isso ela mora aqui e não em `pagaIbsCbs()`: aquele predicado é o caminho
+   validado, e a condição da PJ é outra (só cooperativa, sem `contribuinte` e
+   sem degrau). Misturar os dois faria o não-validado entrar no validado. */
+export function calcularPj({ receitas, despesas, cooperativa }) {
   const r = Number(receitas) || 0;
   const d = Number(despesas) || 0;
+  const pagaIbscbs = !cooperativa;
 
   const irpj = centavos(ALIQ_IRPJ * r);
   const csll = centavos(ALIQ_CSLL * r);
-  const debito = centavos(ALIQ_IBSCBS * r);
-  const credito = centavos(ALIQ_IBSCBS * d);
+  const aliquota = pagaIbscbs ? ALIQ_IBSCBS : 0;
+  const debito = centavos(aliquota * r);
+  const credito = centavos(aliquota * d);
   const saldo = centavos(debito - credito);
 
   const irpjCsll = centavos(irpj + csll);
@@ -201,7 +221,10 @@ export function calcularPj({ receitas, despesas }) {
     csll,
     irpj_csll: irpjCsll,
     aliquota_irpj_csll: ALIQ_IRPJ_CSLL,
-    aliquota_ibscbs: ALIQ_IBSCBS,
+    /* Nome espelhado no de `calcularQuadro()`, de propósito: a tela compara os
+       dois lados e não pode ter que reinferir a regra de cada um. */
+    paga_ibscbs: pagaIbscbs,
+    aliquota_ibscbs: aliquota,
     ibscbs_debito: debito,
     ibscbs_credito: credito,
     ibscbs,

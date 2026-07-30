@@ -48,4 +48,4 @@ mais `robots.txt` — o link não entra em busca.
 ---
 
 Origem: `clientes/cliente-master-academy/3-produto-escalavel/calculadora-reforma-tributaria`
-Impressão do conteúdo publicado: `546b18aa4bee2e12`
+Impressão do conteúdo publicado: `31602fdc75da80b1`

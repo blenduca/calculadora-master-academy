@@ -260,8 +260,14 @@ function ligar() {
   });
 
   /* Corrigir: mesma pessoa, números errados. Volta para a coleta com o contato
-     e o `event_id` intactos — o reenvio sobrescreve a linha da planilha. */
-  $('#corrigir-numeros').addEventListener('click', () => {
+     e o `event_id` intactos — o reenvio sobrescreve a linha da planilha.
+
+     Dois botões chegam aqui: o "Ajustar meus números", logo abaixo da faixa de
+     respostas no alto do resultado, e o "Corrigir meus números" do rodapé —
+     duas saídas para quem já rolou e para quem não rolou. Um caminho só, porque
+     duas cópias do mesmo handler divergem na primeira correção que alguém
+     esquecer de propagar. */
+  const corrigirNumeros = () => {
     estado.payload = null;
     if (estado.dados.receitas !== null) $('#receitas').value = estado.dados.receitas;
     if (estado.dados.despesas !== null) $('#despesas').value = estado.dados.despesas;
@@ -270,7 +276,9 @@ function ligar() {
        um campo, e o histórico já ficou com o valor errado. */
     estado.modo = estado.modo === 'chat' ? 'chat' : 'formulario';
     irPara('form');
-  });
+  };
+  $('#corrigir-numeros').addEventListener('click', corrigirNumeros);
+  $('#ajustar-numeros').addEventListener('click', corrigirNumeros);
 
   /* Começar do zero: outro produtor. Recarregar é o reset honesto — limpa
      conversa, campos, estado e DOM de uma vez, e o `event_id` novo garante

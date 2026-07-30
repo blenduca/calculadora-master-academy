@@ -118,9 +118,15 @@ function cartaoPj(d) {
     parcelas: [
       parcela('IRPJ + CSLL', moedaBR(d.pj.irpj_csll),
         `${percentBR(d.pj.aliquota_irpj_csll)} do faturamento, com ou sem lucro`),
-      parcela('IBS / CBS', moedaBR(d.pj.ibscbs),
-        `${moedaBR(d.pj.ibscbs_debito)} sobre a receita menos
-         ${moedaBR(d.pj.ibscbs_credito)} de crédito das despesas`),
+      /* Isento espelha a marcação da PF de propósito: a mesma palavra e a mesma
+         classe nos dois cartões, para a comparação se ler na horizontal. */
+      parcela('IBS / CBS', d.pj.paga_ibscbs
+        ? moedaBR(d.pj.ibscbs)
+        : '<span class="isento">isento</span>',
+      d.pj.paga_ibscbs
+        ? `${moedaBR(d.pj.ibscbs_debito)} sobre a receita menos
+           ${moedaBR(d.pj.ibscbs_credito)} de crédito das despesas`
+        : 'a cooperativa responde por esse imposto'),
     ],
     total: d.pj.total,
     peso: c.peso_pj !== null ? percentBR(c.peso_pj) : '',
@@ -128,6 +134,49 @@ function cartaoPj(d) {
     menor: c.menor === 'pj',
     selo: seloDe('pj', c),
   });
+}
+
+/* ── O que a pessoa informou ──────────────────────────────────────────────── */
+
+/* A conferência das próprias respostas, antes dos dois cartões. Os quatro dados
+   já existiam na memória de cálculo, só que ela nasce fechada: quem lia a
+   manchete não tinha como saber sobre quais números aquele total foi feito — e
+   a primeira reação diante de um imposto alto é duvidar da entrada, não da
+   conta.
+
+   ⚠️ Acima de LIMITE_RECEITA o cálculo IGNORA as duas escolhas: `quadroAplicavel()`
+   força o quadro obrigatório. Exibir "Contribuinte de IBS/CBS · Não" logo acima
+   de um cartão que diz "contribuinte obrigatório" faria a tela se contradizer.
+   Daí a nota — que aparece SÓ quando a contradição existe de fato, senão vira
+   aviso decorativo e a pessoa aprende a não ler. */
+function faixaRespostas(d) {
+  const e = d.entradas;
+  const simNao = (v) => (v ? 'Sim' : 'Não');
+
+  el('#resultado-respostas').innerHTML = `
+    <div><dt>Receita bruta anual</dt><dd>${moedaBR(e.receitas)}</dd></div>
+    <div><dt>Despesas no ano</dt><dd>${moedaBR(e.despesas)}</dd></div>
+    <div><dt>Cooperado</dt><dd>${simNao(e.cooperativa)}</dd></div>
+    <div><dt>Contribuinte de IBS/CBS</dt><dd>${simNao(e.contribuinte)}</dd></div>`;
+
+  const sobreposto = e.receitas >= LIMITE_RECEITA
+    && (!e.contribuinte || e.cooperativa);
+  /* Os dois cartões divergindo no IBS/CBS. Vem do estado calculado, não das
+     entradas: quem decide a regra é `calculo.js`, e reinferi-la aqui seria a
+     tela opinando sobre imposto. */
+  const divergem = d.pf.paga_ibscbs && !d.pj.paga_ibscbs;
+  const nota = el('#resultado-respostas-nota');
+  nota.hidden = !sobreposto;
+  nota.innerHTML = sobreposto
+    ? `Acima de ${moedaBR(LIMITE_RECEITA)} de receita o enquadramento declarado
+       deixa de valer <strong>na pessoa física</strong>: a simulação a
+       considerou <strong>contribuinte de IBS/CBS</strong>, como manda a regra.${
+      divergem
+        ? ` Na pessoa jurídica isso não acontece — lá a cooperativa continua
+            respondendo pelo IBS/CBS, e é por isso que os dois cartões abaixo
+            divergem nessa linha.`
+        : ''}`
+    : '';
 }
 
 /* ── A leitura: por que os dois números são o que são ─────────────────────── */
@@ -138,21 +187,55 @@ function cartaoPj(d) {
    Só roda quando a PF tem imposto a pagar — o caso de zero tem explicação
    própria, e ali a base é zero e nenhuma destas frases seria verdadeira. */
 function motorDaDiferenca(d) {
+  /* As quatro combinações de quem paga IBS/CBS. Antes eram duas, porque a PJ
+     sempre pagava; com a cooperativa zerando também do lado da PJ, dois textos
+     que existiam passariam a AFIRMAR crédito de despesa que não existe. */
+  const pfPaga = d.pf.paga_ibscbs;
+  const pjPaga = d.pj.paga_ibscbs;
+
   if (d.base.limitador === 'teto de 20%') {
     return `<p>O que segura a conta da pessoa física aqui é o
       <strong>teto de 20%</strong>: o seu resultado foi
       ${moedaBR(d.base.liquido)}, mas a tributação da PF incide sobre no máximo
-      ${moedaBR(d.base.teto)}. A pessoa jurídica não tem esse teto — ela paga
-      sobre o faturamento inteiro e desconta as despesas como crédito.</p>`;
+      ${moedaBR(d.base.teto)}. A pessoa jurídica não tem esse teto — ${pjPaga
+        ? 'ela paga sobre o faturamento inteiro e desconta as despesas como crédito'
+        : `o IRPJ e a CSLL incidem sobre o faturamento inteiro, e o IBS/CBS não
+           entra porque a cooperativa responde por ele`}.</p>`;
   }
-  if (!d.pf.paga_ibscbs) {
-    return `<p>Como pessoa física você não entra na conta do IBS/CBS
-      ${d.entradas.cooperativa
-        ? '— a cooperativa zera esse imposto'
-        : '— você declarou não ser contribuinte'}.
-      Como pessoa jurídica, entra: ${moedaBR(d.pj.ibscbs_debito)} sobre a
-      receita, menos ${moedaBR(d.pj.ibscbs_credito)} de crédito das despesas.</p>`;
+
+  /* Cooperado abaixo do limite: nenhum dos dois lados tem IBS/CBS, e aí a
+     comparação vira uma coisa só — imposto de renda contra presumido. */
+  if (!pfPaga && !pjPaga) {
+    return `<p>Nenhum dos dois lados paga IBS/CBS aqui: <strong>a cooperativa
+      responde por esse imposto</strong>, na pessoa física e na jurídica. A
+      diferença inteira está entre o Imposto de Renda da pessoa física
+      (${moedaBR(d.pf.irpf)}) e os ${percentBR(d.pj.aliquota_irpj_csll)} de
+      IRPJ + CSLL da jurídica (${moedaBR(d.pj.irpj_csll)}), que são cobrados
+      sobre o faturamento mesmo sem lucro.</p>`;
   }
+
+  /* Cooperado acima de R$ 3,6 mi. Os dois lados divergem, e a tela precisa
+     dizer POR QUÊ — senão parece que um dos cartões está errado. */
+  if (pfPaga && !pjPaga) {
+    return `<p>Os dois lados divergem no IBS/CBS, e é isso que produz a maior
+      parte da diferença: acima de ${moedaBR(LIMITE_RECEITA)} de receita a
+      <strong>pessoa física vira contribuinte obrigatória</strong> e paga
+      ${moedaBR(d.pf.ibscbs)}; na <strong>pessoa jurídica a cooperativa continua
+      respondendo</strong> por esse imposto. O resto da diferença está entre o
+      Imposto de Renda (${moedaBR(d.pf.irpf)}) e os
+      ${percentBR(d.pj.aliquota_irpj_csll)} de IRPJ + CSLL
+      (${moedaBR(d.pj.irpj_csll)}).</p>`;
+  }
+
+  /* Não cooperado e não contribuinte, abaixo do limite. Só chega aqui com
+     `cooperativa` falsa — se fosse cooperado, a PJ também não pagaria. */
+  if (!pfPaga) {
+    return `<p>Como pessoa física você não entra na conta do IBS/CBS — você
+      declarou não ser contribuinte. Como pessoa jurídica, entra:
+      ${moedaBR(d.pj.ibscbs_debito)} sobre a receita, menos
+      ${moedaBR(d.pj.ibscbs_credito)} de crédito das despesas.</p>`;
+  }
+
   return `<p>O <strong>IBS/CBS dá o mesmo dos dois lados
     (${moedaBR(d.pf.ibscbs)})</strong>, porque incide sobre a mesma base. A
     diferença inteira está entre o Imposto de Renda da pessoa física
@@ -255,6 +338,8 @@ export function renderResultado(d, { nome } = {}) {
       ${zerado ? explicarZero(d) : explicarValor(d)}
     </p>`;
 
+  faixaRespostas(d);
+
   el('#resultado-cenarios', alvo).innerHTML = cartaoPf(d) + cartaoPj(d);
 
   el('#resultado-leitura', alvo).innerHTML = zerado ? '' : motorDaDiferenca(d);
@@ -301,6 +386,7 @@ export function renderResultado(d, { nome } = {}) {
         <dd>${moedaBR(d.pj.irpj)}<small>1,20% do faturamento</small></dd></div>
       <div><dt>CSLL</dt>
         <dd>${moedaBR(d.pj.csll)}<small>1,08% do faturamento</small></dd></div>
+      ${d.pj.paga_ibscbs ? `
       <div><dt>IBS/CBS sobre a receita</dt>
         <dd>${moedaBR(d.pj.ibscbs_debito)}
           <small>${percentBR(d.pj.aliquota_ibscbs)} de ${moedaBR(d.entradas.receitas)}</small></dd></div>
@@ -313,15 +399,24 @@ export function renderResultado(d, { nome } = {}) {
           <small>${d.pj.credito_acumulado > 0
             ? `crédito acumulado de ${moedaBR(d.pj.credito_acumulado)}`
             : 'receita menos crédito'}</small></dd>
-      </div>
+      </div>` : `
+      <!-- Uma linha só, e não duas de R$ 0,00: débito e crédito zerados lado a
+           lado parecem defeito de conta, não isenção. -->
+      <div class="memoria--destaque">
+        <dt>IBS/CBS devido</dt>
+        <dd>${moedaBR(d.pj.ibscbs)}
+          <small>a cooperativa responde pelo imposto — não há débito sobre a
+            receita nem crédito sobre as despesas</small></dd>
+      </div>`}
       <div><dt>Total como pessoa jurídica</dt><dd>${moedaBR(d.pj.total)}</dd></div>
     </dl>
     <p class="memoria-nota">
       Na pessoa física o IBS/CBS incide sobre a mesma base do Imposto de Renda,
       limitada a 20% da receita; na jurídica ele é cobrado sobre a receita e
-      devolvido como crédito sobre as despesas. Acima de
-      ${moedaBR(LIMITE_RECEITA)} de receita, ser contribuinte deixa de ser
-      escolha na pessoa física.
+      devolvido como crédito sobre as despesas. <strong>Sendo cooperado, a
+      cooperativa responde pelo IBS/CBS nos dois casos</strong> — com uma
+      exceção: acima de ${moedaBR(LIMITE_RECEITA)} de receita, ser contribuinte
+      deixa de ser escolha na pessoa física, e só nela.
     </p>`;
 
   renderDedutiveis(el('#resultado-dedutiveis', alvo));

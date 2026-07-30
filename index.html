@@ -214,6 +214,30 @@
         <div id="resultado-abertura" tabindex="-1" data-foco></div>
       </div>
 
+      <!-- O que a pessoa informou, antes dos dois cartões. Os quatro dados já
+           apareciam na memória de cálculo, mas ela nasce fechada — quem lia a
+           manchete não tinha como conferir sobre quais números aquele total foi
+           feito. -->
+      <div class="respostas">
+        <h3 class="respostas-titulo">Você informou</h3>
+        <dl id="resultado-respostas" class="respostas-lista"></dl>
+        <p class="respostas-nota" id="resultado-respostas-nota" hidden></p>
+      </div>
+
+      <!-- Botão de verdade, FORA da caixa e logo abaixo dela. Antes era um link
+           discreto na mesma linha do título "Você informou": quem conferia as
+           respostas e via um número errado não tinha ação à mão — a saída mais
+           próxima era o rodapé, depois dos dois cartões e da memória.
+
+           Continua na marcação ESTÁTICA, e não dentro do HTML que o JS
+           reescreve: o listener é ligado uma vez na inicialização e um botão
+           re-renderizado perderia o dele na segunda simulação. -->
+      <div class="ajustar">
+        <button type="button" class="botao botao--secundario" id="ajustar-numeros">
+          Ajustar meus números
+        </button>
+      </div>
+
       <!-- Os dois cenários. Só dois: a tabela de cinco quadros de enquadramento
            saiu porque quatro daquelas linhas repetiam dois valores, e a pergunta
            que o produtor faz é outra — vale a pena virar PJ? -->

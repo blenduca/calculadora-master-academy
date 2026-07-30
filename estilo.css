@@ -415,6 +415,78 @@ h1 { margin: 0 0 var(--space-6); max-width: 20ch; letter-spacing: .01em; }
 .isento { color: var(--text-muted); font-style: italic; font-weight: var(--fw-light); }
 .cartao-resultado .isento { color: var(--on-dark-soft); }
 
+/* ── O que a pessoa informou ───────────────────────────────────────────────
+   Painel de apoio, não um terceiro cartão: mesma superfície discreta da memória
+   de cálculo (`--ink-card` + filete). Serve para conferir a entrada, e não pode
+   disputar atenção com os dois cenários que vêm logo abaixo. */
+.respostas {
+  margin-top: var(--space-6);
+  padding: var(--space-4) var(--space-6) var(--space-5);
+  background: var(--ink-card);
+  border: var(--fio) solid var(--hairline-light);
+  border-radius: var(--radius-card);
+}
+.respostas-titulo {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: var(--fs-base);
+  color: var(--text);
+}
+/* No MÁXIMO duas colunas, uma no celular — sem media query. O mínimo da faixa é
+   o maior entre "quase metade do container" e 17rem: onde couberem duas metades
+   o grid dá exatamente 2 colunas, e onde 17rem passa de 50% ele cai para 1.
+   ⚠️ Com `auto-fit` e mínimo fixo a tela larga abria TRÊS colunas e o quarto
+   item ficava órfão sozinho na segunda linha. São quatro respostas — um número
+   par que precisa de uma grade par. */
+.respostas-lista {
+  margin: var(--space-2) 0 0;
+  display: grid;
+  /* O `min(100%, …)` externo não é enfeite: um mínimo em `rem` maior que o
+     container não encolhe, ele VAZA. A 320px as linhas ficavam 272px de largura
+     dentro de uma caixa de 208px, transbordando por cima da borda. */
+  grid-template-columns:
+    repeat(auto-fit, minmax(min(100%, max(17rem, 50% - var(--space-6))), 1fr));
+  column-gap: var(--space-6);
+}
+.respostas-lista > div {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  border-bottom: var(--fio) solid var(--hairline-light);
+}
+.respostas-lista dt { font-size: var(--fs-sm); color: var(--text-muted); }
+.respostas-lista dd {
+  margin: 0; text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-medium);
+}
+/* O botão de ajustar, logo abaixo da caixa de respostas. Encostado nela
+   (`margin-top` curto) para se ler como ação DAQUELE painel e não como um bloco
+   solto entre a conferência e os dois cenários.
+
+   ⚠️ `width: 100%` com teto em `max-width`, e não media query: no celular o
+   botão ocupa a largura toda (área de toque cheia) e na tela larga para em
+   22rem, sem virar uma barra atravessada. Mesma técnica da grade de respostas
+   aqui em cima — esta folha resolve responsividade sem breakpoint. */
+.ajustar {
+  margin-top: var(--space-3);
+  display: flex;
+}
+.ajustar .botao { width: 100%; max-width: 22rem; }
+
+/* O aviso de sobreposição acima de R$ 3,6 mi. Filete navy, como a nota de
+   vigência: verde nesta página significa "menor conta" e não pode marcar uma
+   ressalva. */
+.respostas-nota {
+  margin: var(--space-4) 0 0;
+  max-width: var(--max-leitura);
+  padding-left: var(--space-4);
+  border-left: var(--space-1) solid var(--navy);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text);
+}
+
 /* ── Os dois cenários ──────────────────────────────────────────────────────
    `auto-fit` com mínimo em rem: os dois cartões ficam lado a lado onde cabem e
    empilham sozinhos no celular, sem media query. O mínimo é largo o bastante
