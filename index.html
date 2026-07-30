@@ -4,15 +4,15 @@
 <meta charset="utf-8">
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Calculadora da Reforma Tributária para o Produtor Rural — Master Academy</title>
-<meta name="description" content="Simule em dois minutos quanto a Reforma Tributária representa na sua atividade rural: Imposto de Renda, IBS/CBS e a comparação entre os cenários.">
+<title>Pessoa física ou jurídica? Calculadora da Reforma Tributária no Agro — Master Academy</title>
+<meta name="description" content="Simule em dois minutos quanto a sua atividade rural pagaria de imposto como pessoa física e como pessoa jurídica, já com a Reforma Tributária em vigor.">
 <meta name="theme-color" content="#001f3f">
 
 <meta property="og:type" content="website">
 <meta property="og:locale" content="pt_BR">
 <meta property="og:site_name" content="Master Academy">
-<meta property="og:title" content="Quanto a Reforma Tributária pesa na sua atividade rural?">
-<meta property="og:description" content="Simulação com os seus números: Imposto de Renda, IBS/CBS e a comparação entre cooperado, contribuinte e a faixa obrigatória.">
+<meta property="og:title" content="Pessoa física ou jurídica: qual paga menos imposto no agro?">
+<meta property="og:description" content="Simulação com os seus números, lado a lado: o que a sua atividade rural paga como pessoa física e o que pagaria como pessoa jurídica, depois da Reforma.">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,11 +35,11 @@
   <!-- ══ ABERTURA ══════════════════════════════════════════════════════════ -->
   <section class="etapa etapa--hero" id="etapa-abertura">
     <p class="eyebrow">Simulação gratuita · 2 minutos</p>
-    <h1 tabindex="-1" data-foco>Quanto a Reforma Tributária vai pesar na sua atividade rural?</h1>
+    <h1 tabindex="-1" data-foco>Pessoa física ou jurídica: qual paga menos imposto na sua atividade rural?</h1>
     <p class="chamada">
-      Responda quatro perguntas com os números do seu último ano e veja a conta:
-      Imposto de Renda, IBS/CBS e como o resultado muda se você for cooperado,
-      contribuinte ou passar da faixa obrigatória.
+      Responda quatro perguntas com os números do seu último ano e veja as duas
+      contas lado a lado — o que você paga como pessoa física e o que pagaria
+      como pessoa jurídica, já com a Reforma Tributária em vigor.
     </p>
 
     <div class="portas">
@@ -108,7 +108,9 @@
         <label for="despesas">Despesas no ano</label>
         <input id="despesas" name="despesas" type="text" inputmode="decimal"
                placeholder="R$ 200.000,00" autocomplete="off">
-        <p class="campo-dica">Insumos, mão de obra, manutenção. Use 0 se não houver.</p>
+        <!-- Preenchido por `dedutiveis.js`: a mesma lista aparece no resultado,
+             e duplicá-la aqui faria as duas envelhecerem em ritmos diferentes. -->
+        <p class="campo-dica" id="dica-despesas"></p>
         <p class="campo-erro" id="erro-despesas" role="alert"></p>
       </div>
 
@@ -210,15 +212,25 @@
     <div id="resultado">
       <div class="cartao-resultado">
         <div id="resultado-abertura" tabindex="-1" data-foco></div>
-        <div id="resultado-parcelas" class="parcelas"></div>
       </div>
 
+      <!-- Os dois cenários. Só dois: a tabela de cinco quadros de enquadramento
+           saiu porque quatro daquelas linhas repetiam dois valores, e a pergunta
+           que o produtor faz é outra — vale a pena virar PJ? -->
+      <div id="resultado-cenarios" class="cenarios"></div>
+
+      <div id="resultado-leitura" class="leitura-diferenca"></div>
+
+      <p class="nota-vigencia" id="resultado-vigencia"></p>
+
       <details class="memoria-caixa">
-        <summary>Como chegamos nesse número</summary>
+        <summary>Como chegamos nesses números</summary>
         <div id="resultado-memoria"></div>
       </details>
 
-      <div id="resultado-comparacao" class="comparacao"></div>
+      <div id="resultado-dedutiveis" class="bloco-apoio"></div>
+
+      <div id="resultado-ressalva"></div>
 
       <!-- Sem isto, quem digitou um número errado só tinha o F5 — e o número
            errado já tinha ido para a planilha. Corrigir atualiza o mesmo lead;
@@ -235,11 +247,12 @@
     </div>
 
     <aside class="cta">
-      <h2>Esse número muda conforme a decisão que você toma agora</h2>
+      <h2>Saber a diferença é o começo. Decidir com segurança é o próximo passo.</h2>
       <p>
         A Master Academy formou mais de mil produtores e profissionais do agro
-        na leitura prática da Reforma Tributária. O próximo passo é entender
-        qual cenário é possível para você — e o que precisa ser feito para chegar lá.
+        na leitura prática da Reforma Tributária. O próximo passo é entender o
+        que muda de verdade ao trocar de regime — obrigações, prazos e o que
+        precisa estar pronto antes de 2027.
       </p>
       <a class="botao botao--primario" href="https://cursos.academymaster.com.br/reforma-tributaria">
         Conhecer o curso
@@ -258,13 +271,20 @@
       específica. Consulte seu contador antes de tomar qualquer decisão.
     </p>
     <p class="base-legal">
-      <!-- Lógica tributária validada pela Cirlei (liberada em 28/07/2026).
+      <!-- Lógica da PESSOA FÍSICA validada pela Cirlei (liberada em 28/07/2026).
+           O cenário de PESSOA JURÍDICA é posterior e ainda não passou pela mesma
+           conferência — ver README.md §Pendências.
            TODO(não bloqueante): acrescentar aqui o ANO-BASE da tabela de IRPF e
            a citação legal do IBS/CBS e da redução do agro — não tenho esses
            dois dados e não os invento. Uma frase resolve. -->
-      Premissas: tabela progressiva do IRPF sobre a base apurada, base limitada
-      a 20% da receita bruta, IBS/CBS de 28% com redução de 60% para a atividade
-      rural e enquadramento obrigatório acima de R$&nbsp;3,6 milhões de receita.
+      Premissas na pessoa física: tabela progressiva do IRPF sobre a base
+      apurada, base limitada a 20% da receita bruta, IBS/CBS de 28% com redução
+      de 60% para a atividade rural e enquadramento obrigatório acima de
+      R$&nbsp;3,6 milhões de receita. Na pessoa jurídica: Lucro Presumido rural
+      com IRPJ de 1,20% e CSLL de 1,08% sobre o faturamento, e IBS/CBS de 11,20%
+      sobre a receita com crédito de 11,20% sobre as despesas informadas — sem
+      adicional de IRPJ e sem contribuição previdenciária. IBS e CBS só passam a
+      ser cobrados a partir de 2027.
     </p>
     <p class="assinatura">Master Academy · academymaster.com.br</p>
   </div>

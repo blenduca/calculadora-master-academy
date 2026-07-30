@@ -400,36 +400,191 @@ h1 { margin: 0 0 var(--space-6); max-width: 20ch; letter-spacing: .01em; }
   color: var(--on-dark);
 }
 
-.total-legenda {
-  margin: var(--space-5) 0 0;
-  padding-top: var(--space-4);
-  border-top: var(--fio) solid var(--hairline-dark);
+/* O rótulo do número em destaque. Sem ele "R$ 58.335,34" não diz se é imposto,
+   economia ou diferença — e são três leituras muito distantes uma da outra. */
+.total-legenda-destaque {
+  margin: var(--space-2) 0 0;
   font-size: var(--fs-sm);
   color: var(--on-dark-soft);
 }
 
-.parcelas {
-  display: flex; flex-direction: column;
-  margin-top: var(--space-8);
-  border-top: var(--fio) solid var(--hairline-dark);
+/* ⚠️ O padrão é o fundo CLARO. `.isento` nasceu com --on-dark-soft (branco a
+   68%) e aparece também nos cartões de cenário, que são brancos — o texto
+   ficava literalmente invisível. Cor de texto se define pelo fundo em que o
+   elemento cai, não pelo lugar onde foi escrito primeiro. */
+.isento { color: var(--text-muted); font-style: italic; font-weight: var(--fw-light); }
+.cartao-resultado .isento { color: var(--on-dark-soft); }
+
+/* ── Os dois cenários ──────────────────────────────────────────────────────
+   `auto-fit` com mínimo em rem: os dois cartões ficam lado a lado onde cabem e
+   empilham sozinhos no celular, sem media query. O mínimo é largo o bastante
+   para o maior valor monetário não quebrar linha. */
+.cenarios {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  /* As cinco faixas do cartão: topo · parcelas · total · peso · nota.
+     `1fr` nas parcelas absorve a sobra, e é isso que faz a linha do TOTAL cair
+     na mesma altura nos dois cartões mesmo quando um detalhe de parcela quebra
+     em duas linhas e o outro não. Dois totais desalinhados destroem justamente
+     a comparação visual que esta tela existe para fazer. */
+  grid-template-rows: auto 1fr auto auto auto;
+  margin-top: var(--space-6);
 }
+.cenario {
+  /* `subgrid` faz o cartão herdar as faixas de `.cenarios` em vez de criar as
+     suas. Sem ele cada cartão dimensiona sozinho e o alinhamento é sorte.
+     Fallback: onde não houver subgrid o cartão vira um grid comum, empilha na
+     mesma ordem e só perde o alinhamento entre colunas. */
+  grid-row: span 5;
+  display: grid;
+  grid-template-rows: subgrid;
+  /* ⚠️ `minmax(0, 1fr)` é obrigatório, não decoração. Só as LINHAS são subgrid;
+     a coluna é do próprio cartão, e um item de grid tem `min-width: auto` — ele
+     se recusa a encolher abaixo do conteúdo. Com valores `nowrap` de seis
+     dígitos, os filhos vazavam 38px para fora do cartão no celular, por cima da
+     borda. O `0` de mínimo é o que autoriza o encolhimento.  */
+  grid-template-columns: minmax(0, 1fr);
+  /* O subgrid herda o `gap` do pai — os 20px que separam os dois cartões
+     entrariam TAMBÉM entre as cinco faixas internas de cada um. O respiro
+     interno é dado pelos paddings das próprias faixas. */
+  row-gap: 0;
+  /* ⚠️ NÃO pôr `container-type` aqui. Ele implica `contain: layout`, e um item
+     com containment de layout deixa de ser subgrid e vira grid comum — em
+     silêncio, sem erro nenhum. Foi o que desalinhou os dois totais em 31px
+     depois que uma consulta de container entrou neste seletor. */
+  padding: var(--space-6);
+  background: var(--white);
+  border: var(--fio) solid var(--hairline-light);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+/* O cenário mais barato é marcado por FUNDO e por SELO EM PALAVRAS. Cor sozinha
+   não é canal acessível — quem não distingue o verde precisa ler "menor conta".
+   Verde aqui é fundo, nunca tinta: `--green` como texto sobre claro dá 2,25:1. */
+.cenario--menor {
+  background: var(--green-soft);
+  border-color: var(--green);
+}
+.cenario-topo {
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+  border-bottom: var(--fio) solid var(--hairline-light);
+}
+.cenario-nome {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: var(--fs-xl);
+  line-height: var(--lh-tight);
+  color: var(--text);
+}
+.cenario-sub { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
+.cenario-selo {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow);
+  background: var(--green);
+  color: var(--navy);           /* 7,36:1 — branco sobre verde reprova */
+  border-radius: var(--radius-pill);
+}
+/* O selo do cartão mais caro. Contornado, não colorido: um segundo fundo cheio
+   competiria com o verde e os dois deixariam de significar coisas diferentes. */
+.cenario-selo--neutro {
+  background: transparent;
+  color: var(--text-muted);
+  border: var(--fio) solid var(--hairline-light);
+}
+
+.cenario-parcelas { display: flex; flex-direction: column; }
 .parcela {
   display: flex; justify-content: space-between; align-items: baseline;
   gap: var(--space-4);
   padding: var(--space-4) 0;
-  border-bottom: var(--fio) solid var(--hairline-dark);
+  border-bottom: var(--fio) solid var(--hairline-light);
 }
-.parcela-nome { color: var(--on-dark-soft); font-size: var(--fs-sm); }
-.parcela-valor { font-variant-numeric: tabular-nums; font-weight: var(--fw-medium); }
-.parcela--total { border-bottom: 0; }
-.parcela--total .parcela-nome { color: var(--on-dark); font-weight: var(--fw-semibold); }
-.parcela--total .parcela-valor { font-size: var(--fs-md); font-weight: var(--fw-bold); }
-/* ⚠️ O padrão é o fundo CLARO. `.isento` nasceu com --on-dark-soft (branco a
-   68%) e aparece também na tabela de comparação, que é branca — o texto ficava
-   literalmente invisível. Cor de texto se define pelo fundo em que o elemento
-   cai, não pelo lugar onde foi escrito primeiro. */
-.isento { color: var(--text-muted); font-style: italic; font-weight: var(--fw-light); }
-.cartao-resultado .isento { color: var(--on-dark-soft); }
+.parcela-nome { color: var(--text); font-size: var(--fs-sm); }
+/* O "de onde saiu". Sem ele, IBS/CBS de mesmo valor nos dois cartões parece a
+   mesma conta — e são contas diferentes que coincidiram. */
+.parcela-nome small {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-light);
+  color: var(--text-muted);
+}
+.parcela-valor {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+
+/* Rótulo em cima, valor embaixo — em qualquer largura. Lado a lado, "Total de
+   imposto no ano" disputava a linha com um número de seis dígitos: no cartão
+   estreito o rótulo quebrava em três linhas e o número, que é o que a pessoa
+   veio ver, era o que cedia espaço. Empilhado, o número manda em toda largura.
+
+   Resolver isso por consulta de container seria o natural — e não dá: o
+   `container-type` mataria o subgrid do cartão. */
+.cenario-total {
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: var(--space-1);
+  padding-top: var(--space-5);
+}
+.cenario-total-nome { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.cenario-total-valor {
+  font-family: var(--font-head);
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-tight);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.cenario-peso { margin: var(--space-1) 0 0; font-size: var(--fs-sm); color: var(--text-muted); }
+.cenario-nota {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: var(--fio) solid var(--hairline-light);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.cenario-nota p { margin: 0; }
+/* Faixa vazia não vira filete solto. Um dos dois cartões pode não ter nota — o
+   da PJ só a tem quando sobra crédito — e a faixa existe nos dois por causa do
+   subgrid. Sem isto, o cartão sem nota ganha uma linha horizontal sem texto. */
+.cenario-peso:empty, .cenario-nota:empty {
+  margin: 0; padding: 0; border: 0;
+}
+
+/* ── O que produz a diferença ──────────────────────────────────────────────*/
+
+.leitura-diferenca {
+  max-width: var(--max-leitura);
+  margin-top: var(--space-8);
+  display: flex; flex-direction: column; gap: var(--space-4);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+}
+/* O espaçamento é do `gap`, não das margens. Flex NÃO colapsa margem: com as
+   duas coisas ligadas, cada intervalo virava 16+16+16 = 48px. */
+.leitura-diferenca > * { margin-block: 0; }
+
+/* A nota de vigência. Recuada com filete âmbar-neutro em vez de verde: verde
+   nesta página significa "menor conta", e reaproveitá-lo aqui faria a nota
+   parecer uma boa notícia em vez de um aviso de prazo. */
+.nota-vigencia {
+  max-width: var(--max-leitura);
+  margin: var(--space-8) 0 0;
+  padding: var(--space-4) var(--space-5);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+  color: var(--text);
+  background: var(--white);
+  border-left: var(--space-1) solid var(--navy);
+  border-radius: var(--radius-sm);
+}
 
 .memoria-caixa {
   margin-top: var(--space-6);
@@ -468,114 +623,68 @@ h1 { margin: 0 0 var(--space-6); max-width: 20ch; letter-spacing: .01em; }
   max-width: var(--max-leitura);
 }
 
-.comparacao { margin-top: var(--space-10); }
-/* Tabela larga rola dentro do próprio container; o corpo da página nunca.
-   A rolagem mora AQUI e não em `.comparacao` — senão o texto explicativo
-   acima da tabela entraria na área que rola de lado. */
-.tabela-rolagem { overflow-x: auto; }
-
-.comparacao-titulo {
+/* Título de coluna dentro da memória de cálculo. São duas apurações diferentes
+   no mesmo `<details>`, e sem separação nomeada os números se misturam. */
+.memoria-titulo {
+  margin: var(--space-6) 0 var(--space-2);
   font-family: var(--font-head);
-  font-size: var(--fs-2xl);
-  margin-bottom: var(--space-4);
+  font-size: var(--fs-lg);
+  color: var(--text);
 }
-/* O bloco que explica a diferença ANTES da tabela. Sem ele a pessoa tinha de
-   descobrir sozinha que, das cinco linhas, quatro repetem dois valores. */
-.comparacao-leitura {
-  max-width: var(--max-leitura);
-  margin-bottom: var(--space-8);
-  display: flex; flex-direction: column; gap: var(--space-4);
-  font-size: var(--fs-base);
-  line-height: var(--lh-base);
-}
-/* O espaçamento é do `gap`, não das margens. Flex NÃO colapsa margem: com as
-   duas coisas ligadas, cada intervalo virava 16+16+16 = 48px. */
-.comparacao-leitura > * { margin-block: 0; }
-.exigencias { padding-left: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3); }
-.comparacao-leitura .ressalva {
-  padding: var(--space-4);
-  background: var(--off-white);
-  border-radius: var(--radius-sm);
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-}
-.tabela-quadros {
-  width: 100%; min-width: 34rem;
-  border-collapse: collapse;
-  font-size: var(--fs-sm);
+.memoria-titulo:first-child { margin-top: 0; }
+
+/* ── Despesas dedutíveis ───────────────────────────────────────────────────*/
+
+.bloco-apoio {
+  margin-top: var(--space-10);
+  padding: var(--space-8);
   background: var(--white);
+  border: var(--fio) solid var(--hairline-light);
   border-radius: var(--radius-card);
-  overflow: hidden;
-  box-shadow: var(--shadow-xs);
 }
-.tabela-quadros caption {
-  caption-side: top; text-align: left;
-  padding-bottom: var(--space-4);
+.bloco-titulo {
+  margin: 0 0 var(--space-4);
   font-family: var(--font-head);
   font-size: var(--fs-xl);
   color: var(--text);
 }
-.tabela-quadros th, .tabela-quadros td {
-  padding: var(--space-4);
-  text-align: left;
-  border-bottom: var(--fio) solid var(--hairline-light);
-  vertical-align: top;
+.bloco-leitura {
+  max-width: var(--max-leitura);
+  margin: 0 0 var(--space-6);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  color: var(--text);
 }
-.tabela-quadros thead th {
+/* Duas colunas onde couberem; uma no celular. `list-style` fica: a bolinha é o
+   que marca cada item como unidade quando a lista quebra em duas colunas. */
+.dedutiveis {
+  margin: 0; padding-left: var(--space-6);
+  display: grid; gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.bloco-ressalva {
+  max-width: var(--max-leitura);
+  margin: var(--space-6) 0 0;
   font-size: var(--fs-xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-eyebrow);
   color: var(--text-muted);
-  background: var(--off-white);
 }
-.tabela-quadros .num { text-align: right; font-variant-numeric: tabular-nums; }
-.num--total { font-weight: var(--fw-semibold); }
-.quadro-rotulo { display: block; font-weight: var(--fw-regular); }
-/* O cenário da pessoa é marcado por rótulo E por cor. Só cor não é acessível. */
-.quadro--seu { background: var(--green-soft); }
-.quadro--seu th, .quadro--seu td { font-weight: var(--fw-semibold); }
-.quadro-selo {
-  display: inline-block;
-  margin-top: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-eyebrow);
-  background: var(--green);
-  color: var(--navy);
-  border-radius: var(--radius-pill);
-}
-/* O que o cenário exige na prática. "Cooperado" sozinho não diz a ninguém que
-   isso significa integrar uma cooperativa. */
-.quadro-exige {
-  display: block;
-  margin-top: var(--space-2);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-regular);
-  color: var(--text-muted);
-  max-width: 22rem;
-}
-/* Cenário que esta receita torna impossível. Esmaecido E dito por extenso na
-   coluna de diferença — cor sozinha não é canal acessível. */
-.quadro--indisponivel { opacity: .55; }
-.quadro--indisponivel .num--total,
-.quadro--indisponivel .num { text-decoration: line-through; }
-.quadro--indisponivel .num--dif { text-decoration: none; }
 
-.dif { display: block; font-weight: var(--fw-semibold); }
-.dif small {
-  display: block;
-  font-weight: var(--fw-regular);
-  font-size: var(--fs-xs);
+/* A ressalva que impede a tela de virar folheto de venda de CNPJ. Discreta de
+   propósito, mas nunca escondida: fica no fluxo, antes do CTA do curso. */
+.ressalva {
+  max-width: var(--max-leitura);
+  margin: var(--space-8) 0 0;
+  padding: var(--space-5);
+  background: var(--off-white);
+  border: var(--fio) solid var(--hairline-light);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
   color: var(--text-muted);
 }
-.dif--seu, .dif--fora {
-  font-weight: var(--fw-regular);
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-  text-transform: none;
-}
+.ressalva strong { color: var(--text); }
 
 /* ── Refazer a simulação ───────────────────────────────────────────────── */
 

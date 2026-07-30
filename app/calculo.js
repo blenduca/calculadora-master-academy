@@ -17,8 +17,15 @@
    INTENÇÃO DECLARADA dela — os rótulos `B17`/`B18` mais a matriz de quadros —
    e não os números congelados. Detalhe e prova no README.md desta pasta.
 
-   ⚠️ PENDENTE DE VALIDAÇÃO FISCAL (Cirlei). Enquanto isso não acontecer, esta
-   ferramenta não se publica. Ver README.md §Pendências.
+   O bloco da PESSOA JURÍDICA vem da mesma planilha, aba `CENÁRIO UM`, células
+   `B43:D49` (IRPJ 1,20 % + CSLL 1,08 % sobre o faturamento) e `K11:K13` (o
+   IBS/CBS como débito sobre a receita menos crédito sobre a despesa).
+
+   ⚠️ Lógica da PF validada pela Cirlei em 28/07/2026 e NO AR desde então. O
+   cenário PJ é posterior (30/07) e ainda não passou pela mesma conferência —
+   a maior pergunta aberta é o adicional de IRPJ de 10 % sobre o lucro presumido
+   acima de R$ 240.000/ano, que a planilha não traz e este módulo não calcula.
+   Ver README.md §Pendências e validacao/casos-de-validacao.md §perguntas 5 a 8.
    ========================================================================== */
 
 /* Tabela progressiva do IRPF aplicada sobre a base anual.
@@ -43,6 +50,22 @@ export const LIMITE_RECEITA = 3_600_000;
 
 /* A base tributável é limitada a 20 % da receita bruta. */
 export const TETO_SOBRE_RECEITA = 0.20;
+
+/* ── Pessoa jurídica (Lucro Presumido rural) ──────────────────────────────────
+   Planilha `Calculadora Lidder Agro`, aba `CENÁRIO UM`, células `B45`/`B46`.
+   As duas incidem sobre o FATURAMENTO, não sobre a base do IRPF: a PJ não tem
+   o teto de 20 % nem faixa de isenção. Consequência que a tela precisa dizer:
+   no prejuízo a PJ paga assim mesmo, porque o presumido não olha o resultado. */
+export const ALIQ_IRPJ = 0.012;    /* 1,20 % s/ faturamento */
+export const ALIQ_CSLL = 0.0108;   /* 1,08 % s/ faturamento */
+/* 2,28 %. Mantido como soma, não como literal, para o "de onde veio" ficar
+   legível no próprio código — mesma razão de `ALIQ_IBSCBS`. */
+export const ALIQ_IRPJ_CSLL = ALIQ_IRPJ + ALIQ_CSLL;
+
+/* IBS e CBS só passam a ser cobrados neste ano. Antes disso a parcela de
+   IBS/CBS dos dois lados da comparação simplesmente não existe — a tela declara
+   isso em texto, e é por isso que a constante mora aqui e não no HTML. */
+export const ANO_INICIO_IBSCBS = 2027;
 
 /* Os cinco cenários. Os quatro primeiros são a matriz cooperativa × contribuinte
    em ordem de tabela-verdade; o quinto é a faixa obrigatória por receita.
@@ -143,19 +166,76 @@ export function quadroAplicavel({ receitas, cooperativa, contribuinte }) {
   );
 }
 
-/* Quais cenários EXISTEM para esta pessoa — coisa diferente de qual é o dela.
-   Acima do limite, ser contribuinte deixa de ser escolha: os quatro quadros
-   opcionais não são alternativas mais baratas, são situações impossíveis.
-   Abaixo do limite, o inverso — a faixa obrigatória é que não se alcança.
+/* A mesma atividade rural apurada como PESSOA JURÍDICA no Lucro Presumido.
+   Três diferenças estruturais em relação à PF, e cada uma tem consequência
+   visível no resultado:
 
-   Sem esta distinção a comparação dizia a quem fatura 5 milhões que ele estava
-   "R$ 112.000 acima do menor cenário possível" — um cenário que não existe para
-   ele. Número certo, frase falsa; e é o tipo de frase que vai ao contador. */
-export function alcancavelPara(quadro, receitas) {
-  const obrigado = (Number(receitas) || 0) >= LIMITE_RECEITA;
-  return obrigado
-    ? quadro.id === QUADRO_OBRIGATORIO
-    : quadro.id !== QUADRO_OBRIGATORIO;
+   1. IRPJ e CSLL incidem sobre a RECEITA BRUTA. Não há teto de 20 %, não há
+      faixa de isenção e não há dedução — por isso a PJ paga mesmo no prejuízo.
+   2. O IBS/CBS é DÉBITO menos CRÉDITO (planilha, `K11:K13`): 11,2 % do que
+      entrou menos 11,2 % do que foi gasto. É o que faz a despesa comprovada
+      valer dinheiro na PJ, e é o argumento inteiro da lista de dedutíveis.
+   3. Crédito maior que débito NÃO vira imposto negativo. O excedente fica como
+      crédito acumulado para os períodos seguintes; aqui ele é nomeado e
+      devolvido separado, porque "-R$ 112.000 de imposto" seria uma promessa
+      de restituição que não existe.
+
+   ⚠️ O crédito está sendo calculado sobre a DESPESA TOTAL informada, não só
+   sobre os insumos efetivamente tributados. É simplificação declarada — está
+   escrita na página e registrada no doc de validação. */
+export function calcularPj({ receitas, despesas }) {
+  const r = Number(receitas) || 0;
+  const d = Number(despesas) || 0;
+
+  const irpj = centavos(ALIQ_IRPJ * r);
+  const csll = centavos(ALIQ_CSLL * r);
+  const debito = centavos(ALIQ_IBSCBS * r);
+  const credito = centavos(ALIQ_IBSCBS * d);
+  const saldo = centavos(debito - credito);
+
+  const irpjCsll = centavos(irpj + csll);
+  const ibscbs = Math.max(0, saldo);
+
+  return {
+    irpj,
+    csll,
+    irpj_csll: irpjCsll,
+    aliquota_irpj_csll: ALIQ_IRPJ_CSLL,
+    aliquota_ibscbs: ALIQ_IBSCBS,
+    ibscbs_debito: debito,
+    ibscbs_credito: credito,
+    ibscbs,
+    /* Quanto de crédito sobrou sem uso. Zero quando há imposto a pagar. */
+    credito_acumulado: saldo < 0 ? centavos(-saldo) : 0,
+    total: centavos(irpjCsll + ibscbs),
+  };
+}
+
+/* A comparação que é a razão de existir desta versão: a mesma pessoa, os mesmos
+   números, apurados como PF e como PJ.
+
+   ⚠️ Comparar NÃO é recomendar — e agora isso pesa mais, porque a comparação
+   tem lado vencedor. Aqui só saem fatos (qual é menor, por quanto, quanto pesa
+   na receita). Virar PJ tem custo de contabilidade, obrigações acessórias e
+   pró-labore que esta conta não mede, e é a tela que precisa dizer isso.
+
+   E a PJ não ganha sempre: com margem acima de 20 % o teto da PF derruba a base
+   do IRPF e a PF sai mais barata. Um empate de centavo é empate — arredondar
+   duas contas diferentes produz diferenças de R$ 0,01 que não significam nada. */
+export function compararPfPj(pf, pj, receitas) {
+  const r = Number(receitas) || 0;
+  const delta = centavos(pf.total - pj.total);
+  let menor = 'empate';
+  if (delta > 0.01) menor = 'pj';
+  else if (delta < -0.01) menor = 'pf';
+
+  return {
+    menor,
+    /* Sempre positiva: o lado está em `menor`, não no sinal. */
+    diferenca: centavos(Math.abs(delta)),
+    peso_pf: r > 0 ? pf.total / r : null,
+    peso_pj: r > 0 ? pj.total / r : null,
+  };
 }
 
 /* Por que o total deu zero. São três motivos diferentes, e a tela precisa
@@ -171,52 +251,14 @@ export function motivoDeZero(dadosBase, total) {
   return 'abaixo_da_faixa';                             /* base < 1ª faixa do IRPF */
 }
 
-/* O que dá SENTIDO ao número. Um valor de imposto sozinho não diz nada: R$ 27
-   mil é muito ou pouco? A resposta está no que a ferramenta já calcula — a
-   mesma pessoa, os mesmos números, enquadramentos diferentes.
+/* A porta de entrada única. Devolve a base, a apuração da pessoa como PF, a
+   mesma apuração como PJ e a comparação entre as duas — que é o que transforma
+   um número de imposto em argumento.
 
-   ⚠️ Comparar NÃO é recomendar. Ser cooperado ou contribuinte não é chave que
-   se liga: tem consequência de negócio. Por isso aqui só saem fatos (faixa,
-   diferença, posição), e a tela fala de "quanto o enquadramento pesa", nunca de
-   "quanto você está perdendo". */
-export function compararCenarios(quadros, receitas) {
-  const meu = quadros.find((q) => q.aplicavel);
-
-  /* ⚠️ Só os ALCANÇÁVEIS entram na comparação. Comparar contra um cenário que a
-     pessoa não pode ocupar produz uma diferença que ninguém captura — e a tela
-     a apresentava como distância para "o menor cenário possível". */
-  const possiveis = quadros.filter((q) => q.alcancavel);
-  const totais = possiveis.map((q) => q.total);
-  const minimo = Math.min(...totais);
-  const maximo = Math.max(...totais);
-
-  /* O IRPF é o mesmo nos cinco quadros — o enquadramento só mexe no IBS/CBS.
-     É o fato que faz a tabela de cinco linhas caber numa frase, e ele estava
-     escondido numa coluna que repetia o mesmo valor cinco vezes. */
-  const irpfs = new Set(quadros.map((q) => q.irpf));
-
-  return {
-    minimo,
-    maximo,
-    /* O que a escolha de enquadramento vale por ano, nos números desta pessoa. */
-    amplitude: centavos(maximo - minimo),
-    /* Quanto o cenário da pessoa está acima do mais barato QUE ELA ALCANÇA. */
-    acima_do_minimo: centavos(meu.total - minimo),
-    sou_o_mais_barato: meu.total === minimo,
-    sou_o_mais_caro: meu.total === maximo && maximo > minimo,
-    /* Âncora que o número sozinho não tem: fração da própria receita. */
-    peso_na_receita: receitas > 0 ? meu.total / receitas : null,
-    /* Nada a escolher: ou os alcançáveis empatam, ou só existe um deles
-       (o caso de quem passou de R$ 3,6 mi). */
-    enquadramento_indiferente: maximo === minimo,
-    /* Quantos cenários esta pessoa de fato pode ocupar. 1 = não é escolha. */
-    cenarios_possiveis: possiveis.length,
-    irpf_constante: irpfs.size === 1 ? meu.irpf : null,
-  };
-}
-
-/* A porta de entrada única. Devolve a base, o quadro da pessoa e os cinco
-   cenários lado a lado — é a comparação que transforma o número em argumento. */
+   Os cinco quadros continuam sendo calculados: eles é que decidem QUAL é o
+   número da PF (cooperado zera o IBS/CBS; acima de R$ 3,6 mi ser contribuinte
+   deixa de ser escolha). O que mudou é que eles não vão mais à tela — a pessoa
+   vê o resultado do quadro dela, e a comparação que ela vê é PF × PJ. */
 export function diagnosticar({ receitas, despesas, cooperativa, contribuinte }) {
   const entradas = {
     receitas: Number(receitas) || 0,
@@ -229,15 +271,17 @@ export function diagnosticar({ receitas, despesas, cooperativa, contribuinte }) 
   const quadros = QUADROS.map((q) => ({
     ...calcularQuadro(q, dadosBase),
     aplicavel: q.id === aplicavel.id,
-    alcancavel: alcancavelPara(q, entradas.receitas),
   }));
-  const meu = quadros.find((q) => q.aplicavel);
+  const pf = quadros.find((q) => q.aplicavel);
+  const pj = calcularPj(entradas);
   return {
     entradas,
     /* Faixa de isenção do IRPF — a tela precisa dela para explicar o zero. */
     faixa_isencao: TABELA_IRPF[1].de,
-    motivo_zero: motivoDeZero(dadosBase, meu.total),
-    comparacao: compararCenarios(quadros, entradas.receitas),
+    motivo_zero: motivoDeZero(dadosBase, pf.total),
+    pf,
+    pj,
+    comparacao: compararPfPj(pf, pj, entradas.receitas),
     base: {
       liquido: centavos(dadosBase.liquido),
       teto: centavos(dadosBase.teto),

@@ -66,7 +66,9 @@ export function montarPayload({
   const plana = (typeof window.pzAtribuicaoPlana === 'function')
     ? window.pzAtribuicaoPlana(attr) : {};
 
-  const meu = diagnostico.quadros.find((q) => q.aplicavel) || {};
+  const pf = diagnostico.pf || {};
+  const pj = diagnostico.pj || {};
+  const cmp = diagnostico.comparacao || {};
 
   return {
     tenant_slug: 'master-academy',
@@ -98,16 +100,33 @@ export function montarPayload({
     consent_texto: consentTexto || '',
     consent_ts: contato.consent_ts || '',
 
-    /* O resultado vai junto para a planilha ser útil sem recalcular nada. */
+    /* O resultado vai junto para a planilha ser útil sem recalcular nada.
+
+       ⚠️ CAMPO NOVO AQUI NÃO CHEGA SOZINHO NA PLANILHA. O fluxo
+       `MasterAcademy | Diagnostico | Lead` achata este payload num nó Code com
+       a lista de colunas FIXA. O que não estiver naquela lista é descartado em
+       silêncio: o POST volta 200 e o dado some. Ao acrescentar campo aqui,
+       acrescentar também no nó Code e no cabeçalho da aba — ver fluxos-n8n.md
+       §Colunas. */
     receitas: diagnostico.entradas.receitas,
     despesas: diagnostico.entradas.despesas,
     cooperativa: diagnostico.entradas.cooperativa,
     contribuinte: diagnostico.entradas.contribuinte,
     quadro: diagnostico.quadro_aplicavel,
     base_calculo: diagnostico.base.base,
-    irpf: meu.irpf ?? 0,
-    ibscbs: meu.ibscbs ?? 0,
-    total: meu.total ?? 0,
+    /* Pessoa física. Os nomes curtos são os históricos — renomear quebraria as
+       linhas já gravadas na planilha, que não têm de onde ser recalculadas. */
+    irpf: pf.irpf ?? 0,
+    ibscbs: pf.ibscbs ?? 0,
+    total: pf.total ?? 0,
+    /* Pessoa jurídica e o veredito da comparação. `menor_cenario` é o que
+       permite à Fabiélli filtrar a planilha por quem tem caso — sem ele, ela
+       teria de comparar duas colunas linha a linha. */
+    pj_irpj_csll: pj.irpj_csll ?? 0,
+    pj_ibscbs: pj.ibscbs ?? 0,
+    pj_total: pj.total ?? 0,
+    menor_cenario: cmp.menor ?? '',
+    diferenca_pf_pj: cmp.diferenca ?? 0,
 
     attr,
     ...plana,

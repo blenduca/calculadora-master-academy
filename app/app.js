@@ -15,6 +15,7 @@
 
 import { diagnosticar } from './calculo.js';
 import { estadoVazio, faltando, mesclar, turno } from './chat.js';
+import { renderDedutiveis } from './dedutiveis.js';
 import { EM_VALIDACAO } from './endpoints.js';
 import { lerContato, lerDadosFiscais, mascararTelefone } from './formulario.js';
 import { enviarLead, montarPayload, reenviarPendentes } from './lead.js';
@@ -278,6 +279,12 @@ function ligar() {
   $('#recomecar').addEventListener('click', () => { window.location.reload(); });
 
   mascararTelefone($('#whatsapp'));
+
+  /* A dica do campo de despesas sai da mesma lista que o bloco do resultado.
+     A despesa é o campo mais subestimado do formulário, e na PJ ela vira
+     crédito de IBS/CBS — subestimar não deixa a simulação conservadora, deixa
+     errada para o lado que faz a PJ parecer pior do que é. */
+  renderDedutiveis($('#dica-despesas'), { compacto: true });
 
   /* No host de validação o chat não dispara chamada real — esconder a porta é
      mais honesto que deixá-la quebrar na cara de quem está aprovando o design. */

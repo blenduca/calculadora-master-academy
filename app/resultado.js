@@ -5,148 +5,177 @@
    conta, não arredonda, não decide nada. Se um número aqui estiver errado, o
    erro está em calculo.js — e lá tem teste.
 
-   Duas regras que a tela não pode violar:
-   · O quadro da pessoa é marcado por RÓTULO, não só por cor. Escala visual sem
-     canal secundário é inacessível.
+   Três regras que a tela não pode violar:
+   · O cenário mais barato é marcado por RÓTULO, não só por cor. Escala visual
+     sem canal secundário é inacessível.
    · A memória de cálculo fica aberta a um clique. Um número de imposto sem a
      conta atrás é pedir confiança cega — e este é o material que a Master vai
      usar para ganhar confiança.
+   · Comparar NÃO é recomendar, e isso ficou MAIS difícil agora que a comparação
+     tem lado vencedor. A tela nomeia a diferença e o que a produz; não diz
+     "abra um CNPJ". A ressalva final lista o que a conta não mede, porque é
+     exatamente o que decide o caso na vida real.
    ========================================================================== */
 
 import {
-  ALIQ_IBSCBS_CHEIA, LIMITE_RECEITA, REDUCAO_AGRO, centavos,
+  ALIQ_IBSCBS_CHEIA, ANO_INICIO_IBSCBS, LIMITE_RECEITA, REDUCAO_AGRO,
 } from './calculo.js';
+import { renderDedutiveis } from './dedutiveis.js';
 import { moedaBR, percentBR } from './formato.js';
 
 const el = (sel, raiz = document) => raiz.querySelector(sel);
 
-/* O que cada cenário EXIGE, em português de quem não é contador. O rótulo
-   técnico sozinho não informa: "cooperado" não avisa que isso significa
-   integrar uma cooperativa — decisão de negócio, não opção de formulário.
-   É esta coluna que responde "não está claro a diferença dos cenários". */
-const O_QUE_EXIGE = {
-  1: 'Não integra cooperativa e não é contribuinte de IBS/CBS',
-  2: 'Não integra cooperativa e é contribuinte de IBS/CBS',
-  3: 'É associado a uma cooperativa',
-  4: 'É associado a uma cooperativa — a cooperativa zera o IBS/CBS mesmo sendo contribuinte',
-  5: 'Receita a partir de R$ 3,6 milhões: contribuinte por obrigação, não por escolha',
-};
+/* ── Os dois cartões ──────────────────────────────────────────────────────── */
 
-/* A célula de diferença. Sinal E palavra: cor e sinal sozinhos não são canal
-   acessível (padrao-ativos-web.md — escala divergente sempre com rótulo). */
-function celulaDiferenca(q, meu) {
-  if (q.aplicavel) return '<span class="dif dif--seu">este é o seu</span>';
-  /* Cenário que esta pessoa não pode ocupar não ganha número. Mostrar
-     "−R$ 112.000" para algo impossível é oferecer uma economia que não
-     existe — foi exatamente o defeito que a receita acima do limite expunha. */
-  if (!q.alcancavel) {
-    return '<span class="dif dif--fora">não disponível para a sua receita</span>';
-  }
-  const delta = centavos(q.total - meu.total);
-  if (delta === 0) return '<span class="dif">igual ao seu</span>';
-  const sinal = delta > 0 ? '+' : '−';
-  const palavra = delta > 0 ? 'a mais que o seu' : 'a menos que o seu';
-  return `<span class="dif">${sinal} ${moedaBR(Math.abs(delta))}
-    <small>${palavra}</small></span>`;
+/* Uma parcela da conta. `detalhe` é o "de onde saiu" — sem ele "IBS/CBS
+   R$ 67.200,00" aparece igual nos dois cartões vindo de contas diferentes, e
+   quem lê conclui que é a mesma coisa. Não é. */
+function parcela(nome, valor, detalhe = '') {
+  return `
+    <div class="parcela">
+      <span class="parcela-nome">${nome}${
+        detalhe ? `<small>${detalhe}</small>` : ''
+      }</span>
+      <span class="parcela-valor">${valor}</span>
+    </div>`;
 }
 
-function linhaQuadro(q, meu) {
-  const classes = ['quadro'];
-  if (q.aplicavel) classes.push('quadro--seu');
-  if (!q.alcancavel) classes.push('quadro--indisponivel');
-  const selo = q.aplicavel
-    ? '<span class="quadro-selo">Seu enquadramento</span>'
-    : '';
+/* O selo. Existe nos DOIS cartões, sempre, por duas razões que se somam:
+
+   · Acessibilidade — o cenário mais barato é dito em palavras, não só pelo
+     fundo verde. Cor sozinha não é canal.
+   · Alinhamento — com selo num cartão só, o cabeçalho do outro fica mais curto
+     e os dois totais param em alturas diferentes. Duas colunas que não se
+     alinham na linha do total destroem justamente a comparação visual que a
+     tela existe para fazer.
+
+   E o selo do perdedor não é enfeite: ele carrega a diferença, que é o número
+   que a pessoa estava tendo de calcular de cabeça entre um cartão e outro. */
+function seloDe(chave, c) {
+  if (c.menor === 'empate') {
+    return '<span class="cenario-selo cenario-selo--neutro">Praticamente igual</span>';
+  }
+  if (c.menor === chave) {
+    return '<span class="cenario-selo">Menor conta no ano</span>';
+  }
+  return `<span class="cenario-selo cenario-selo--neutro">${moedaBR(c.diferenca)}
+    a mais no ano</span>`;
+}
+
+function cartaoCenario({ chave, nome, sub, parcelas, total, peso, nota, menor, selo }) {
   return `
-    <tr class="${classes.join(' ')}">
-      <th scope="row">
-        <span class="quadro-rotulo">${q.rotulo}</span>
+    <article class="cenario ${menor ? 'cenario--menor' : ''}" data-cenario="${chave}">
+      <header class="cenario-topo">
+        <h3 class="cenario-nome">${nome}</h3>
+        <p class="cenario-sub">${sub}</p>
         ${selo}
-        <small class="quadro-exige">${O_QUE_EXIGE[q.id]}</small>
-      </th>
-      <td class="num">${q.paga_ibscbs ? moedaBR(q.ibscbs) : '<span class="isento">isento</span>'}</td>
-      <td class="num num--total">${moedaBR(q.total)}</td>
-      <td class="num num--dif">${celulaDiferenca(q, meu)}</td>
-    </tr>`;
+      </header>
+      <div class="cenario-parcelas">${parcelas.join('')}</div>
+      <div class="cenario-total">
+        <span class="cenario-total-nome">Total de imposto no ano</span>
+        <strong class="cenario-total-valor">${moedaBR(total)}</strong>
+      </div>
+      <p class="cenario-peso">${peso ? `${peso} da sua receita` : ''}</p>
+      <div class="cenario-nota">${nota || ''}</div>
+    </article>`;
 }
 
-/* O bloco que a tabela sozinha não entregava. Rodando o cálculo real, os cinco
-   cenários produzem DOIS valores, e a coluna de IRPF repete o mesmo número
-   cinco vezes: a diferença inteira é o IBS/CBS. A tabela apresentava cinco
-   opções onde existe uma pergunta só.
-
-   ⚠️ Comparar não é recomendar. Aqui se nomeia o valor da diferença e o que o
-   outro cenário EXIGE — nunca "migre e economize". Ser cooperado não é regime
-   que se elege, e acima de R$ 3,6 mi não é escolha nenhuma. */
-function blocoDiferenca(d, meu) {
+function cartaoPf(d) {
   const c = d.comparacao;
-
-  if (c.cenarios_possiveis === 1) {
-    return `<p><strong>Com a sua receita, isto não é uma escolha.</strong>
-      Acima de ${moedaBR(LIMITE_RECEITA)} de receita bruta, ser contribuinte de
-      IBS/CBS passa a ser obrigatório — os outros enquadramentos da tabela não
-      estão disponíveis para você, e por isso aparecem sem comparação.</p>`;
-  }
-
-  if (c.enquadramento_indiferente) {
-    return `<p><strong>Com estes números, o enquadramento não muda o que você
-      paga.</strong> Nos ${c.cenarios_possiveis} cenários disponíveis para a sua
-      receita o total é o mesmo${
-        c.irpf_constante !== null ? ` — só Imposto de Renda, sem IBS/CBS` : ''
-      }.</p>`;
-  }
-
-  const irpf = c.irpf_constante !== null
-    ? `<p>O <strong>Imposto de Renda é o mesmo em todos os cenários:
-       ${moedaBR(c.irpf_constante)}</strong>. A única coisa que o enquadramento
-       muda é o IBS/CBS — <strong>${moedaBR(c.amplitude)} por ano</strong>.</p>`
-    : '';
-
-  const porque = meu.paga_ibscbs
-    ? `<p>Você entra na conta do IBS/CBS porque é contribuinte e não é
-       cooperado.</p>`
-    : `<p>Você não entra na conta do IBS/CBS porque
-       ${d.entradas.cooperativa
-          ? 'é cooperado — e a cooperativa zera esse imposto'
-          : 'não é contribuinte de IBS/CBS'}.</p>`;
-
-  return `
-    ${irpf}
-    ${porque}
-    <p>Quem está do outro lado dessa diferença está numa destas situações:</p>
-    <ul class="exigencias">
-      <li><strong>É associado a uma cooperativa.</strong> Não é uma opção
-        fiscal que se marca: é integrar uma cooperativa, com tudo o que isso
-        muda na operação.</li>
-      <li><strong>Não é contribuinte de IBS/CBS.</strong> Depende do regime de
-        apuração da atividade, não de uma preferência.</li>
-    </ul>
-    <p class="ressalva">⚠️ Acima de ${moedaBR(LIMITE_RECEITA)} de receita isso
-      deixa de ser escolha: contribuinte passa a ser obrigatório.
-      <strong>Esta ferramenta compara cenários, não recomenda enquadramento</strong>
-      — o que cabe no seu caso é conversa com o seu contador.</p>`;
+  return cartaoCenario({
+    chave: 'pf',
+    nome: 'Pessoa Física',
+    sub: 'Como a maior parte dos produtores declara hoje',
+    parcelas: [
+      parcela('Imposto de Renda', moedaBR(d.pf.irpf),
+        `tabela progressiva sobre a base de ${moedaBR(d.base.base)}`),
+      parcela('IBS / CBS', d.pf.paga_ibscbs
+        ? moedaBR(d.pf.ibscbs)
+        : '<span class="isento">isento</span>',
+      d.pf.paga_ibscbs
+        ? `${percentBR(d.pf.aliquota_ibscbs)} sobre a mesma base do IR`
+        : 'não incide neste enquadramento'),
+    ],
+    total: d.pf.total,
+    peso: c.peso_pf !== null ? percentBR(c.peso_pf) : '',
+    nota: `<p>Seu enquadramento: ${d.pf.rotulo}</p>`,
+    menor: c.menor === 'pf',
+    selo: seloDe('pf', c),
+  });
 }
 
-/* Explica um resultado zerado. Foi o retorno da cliente que trouxe isto: a tela
-   mostrava "R$ 0,00" em verde, sem uma palavra, e zero sem explicação parece
-   defeito.
+function cartaoPj(d) {
+  const c = d.comparacao;
+  const credito = d.pj.credito_acumulado > 0
+    ? `<p>O crédito das despesas superou o imposto da receita em
+       ${moedaBR(d.pj.credito_acumulado)}. Não vira dinheiro de volta: fica como
+       crédito para os períodos seguintes.</p>`
+    : '';
+  return cartaoCenario({
+    chave: 'pj',
+    nome: 'Pessoa Jurídica',
+    sub: 'Lucro Presumido rural',
+    parcelas: [
+      parcela('IRPJ + CSLL', moedaBR(d.pj.irpj_csll),
+        `${percentBR(d.pj.aliquota_irpj_csll)} do faturamento, com ou sem lucro`),
+      parcela('IBS / CBS', moedaBR(d.pj.ibscbs),
+        `${moedaBR(d.pj.ibscbs_debito)} sobre a receita menos
+         ${moedaBR(d.pj.ibscbs_credito)} de crédito das despesas`),
+    ],
+    total: d.pj.total,
+    peso: c.peso_pj !== null ? percentBR(c.peso_pj) : '',
+    nota: credito,
+    menor: c.menor === 'pj',
+    selo: seloDe('pj', c),
+  });
+}
+
+/* ── A leitura: por que os dois números são o que são ─────────────────────── */
+
+/* O que PRODUZ a diferença, nos números desta pessoa. É a parte que a tela
+   antiga não tinha e que faz o resultado ensinar em vez de só informar.
+
+   Só roda quando a PF tem imposto a pagar — o caso de zero tem explicação
+   própria, e ali a base é zero e nenhuma destas frases seria verdadeira. */
+function motorDaDiferenca(d) {
+  if (d.base.limitador === 'teto de 20%') {
+    return `<p>O que segura a conta da pessoa física aqui é o
+      <strong>teto de 20%</strong>: o seu resultado foi
+      ${moedaBR(d.base.liquido)}, mas a tributação da PF incide sobre no máximo
+      ${moedaBR(d.base.teto)}. A pessoa jurídica não tem esse teto — ela paga
+      sobre o faturamento inteiro e desconta as despesas como crédito.</p>`;
+  }
+  if (!d.pf.paga_ibscbs) {
+    return `<p>Como pessoa física você não entra na conta do IBS/CBS
+      ${d.entradas.cooperativa
+        ? '— a cooperativa zera esse imposto'
+        : '— você declarou não ser contribuinte'}.
+      Como pessoa jurídica, entra: ${moedaBR(d.pj.ibscbs_debito)} sobre a
+      receita, menos ${moedaBR(d.pj.ibscbs_credito)} de crédito das despesas.</p>`;
+  }
+  return `<p>O <strong>IBS/CBS dá o mesmo dos dois lados
+    (${moedaBR(d.pf.ibscbs)})</strong>, porque incide sobre a mesma base. A
+    diferença inteira está entre o Imposto de Renda da pessoa física
+    (${moedaBR(d.pf.irpf)}) e os ${percentBR(d.pj.aliquota_irpj_csll)} de
+    IRPJ + CSLL da jurídica (${moedaBR(d.pj.irpj_csll)}).</p>`;
+}
+
+/* Explica um resultado zerado na PF. Foi o retorno da cliente que trouxe isto:
+   a tela mostrava "R$ 0,00" em verde, sem uma palavra, e zero sem explicação
+   parece defeito.
 
    E zero NÃO é caso raro: a base é limitada a 20% da receita, então qualquer
-   receita até ~R$ 134.800 sem despesas cai na faixa de isenção do IRPF. */
+   receita até ~R$ 134.800 sem despesas cai na faixa de isenção do IRPF.
+
+   O contraste agora é a PJ, e ele inverte a leitura fácil: onde a PF zera, a
+   jurídica quase sempre paga — o Lucro Presumido não tem faixa de isenção nem
+   olha o resultado. */
 function explicarZero(d) {
-  const faixa = moedaBR(d.faixa_isencao);
-  const c = d.comparacao;
-
-  /* Zero no SEU enquadramento não quer dizer zero em todos. O IRPF tem faixa de
-     isenção; o IBS/CBS não tem nenhuma — incide desde o primeiro real de base.
-     Então quem paga zero por ser não-contribuinte pagaria algo se fosse.
-
-     Essa é a informação mais útil da tela para quem zerou, e ela estava
-     escondida na tabela. Sem ela, "R$ 0,00" não ensina nada. */
-  const contraste = c.maximo > 0
-    ? ` Isso vale para o seu enquadramento: com os seus mesmos números, quem é
-        contribuinte de IBS/CBS pagaria <strong>${moedaBR(c.maximo)}</strong>
-        por ano.`
+  const contraste = d.pj.total > 0
+    ? ` Do outro lado, a pessoa jurídica pagaria
+        <strong>${moedaBR(d.pj.total)}</strong> com os seus mesmos números: o
+        Lucro Presumido cobra ${percentBR(d.pj.aliquota_irpj_csll)} do
+        faturamento, sem faixa de isenção.`
     : '';
 
   switch (d.motivo_zero) {
@@ -156,93 +185,96 @@ function explicarZero(d) {
     case 'sem_resultado':
       return `As despesas informadas (${moedaBR(d.entradas.despesas)}) alcançaram
         ou passaram a receita (${moedaBR(d.entradas.receitas)}), então não há
-        resultado a tributar neste ano.${contraste}`;
+        resultado a tributar como pessoa física neste ano.${contraste}`;
     default:
-      return `<strong>Não há imposto a pagar com estes números.</strong> A sua
-        base de cálculo ficou em ${moedaBR(d.base.base)}, abaixo da faixa em que
-        o Imposto de Renda começa a incidir (${faixa}).${contraste}`;
+      return `<strong>Como pessoa física não há imposto a pagar com estes
+        números.</strong> A sua base de cálculo ficou em ${moedaBR(d.base.base)},
+        abaixo da faixa em que o Imposto de Renda começa a incidir
+        (${moedaBR(d.faixa_isencao)}).${contraste}`;
   }
 }
 
 /* O que o número SIGNIFICA. Um valor de imposto sozinho não responde nada — foi
-   exatamente o retorno da cliente ("é economia? enquadramento errado?").
-   O sentido está na comparação, que a ferramenta já calculava e escondia numa
-   tabela lá embaixo.
-
-   ⚠️ Comparar não é recomendar. Ser cooperado ou contribuinte tem consequência
-   de negócio; aqui só se diz quanto o enquadramento PESA, nunca o que fazer. */
-function explicarValor(d, meu) {
+   exatamente o retorno da cliente ("é economia? enquadramento errado?"). */
+function explicarValor(d) {
   const c = d.comparacao;
-  const peso = c.peso_na_receita !== null
-    ? `<strong>${percentBR(c.peso_na_receita)} da receita</strong> de
-       ${moedaBR(d.entradas.receitas)} que você informou`
-    : '';
-
-  /* Único cenário alcançável: não há comparação honesta a fazer. Antes desta
-     guarda a tela dizia a quem fatura 5 milhões que estava "R$ 112.000 acima do
-     menor cenário possível" — comparando com quadros que a receita dele torna
-     impossíveis. Número certo, frase falsa. */
-  if (c.cenarios_possiveis === 1) {
-    return `${peso ? `Equivale a ${peso}. ` : ''}Com a sua receita, ser
-      contribuinte de IBS/CBS é obrigatório — <strong>não há outro
-      enquadramento a comparar</strong>.`;
+  if (c.menor === 'empate') {
+    return `Com os seus números, os dois caminhos custam praticamente o mesmo:
+      ${moedaBR(d.pf.total)} como pessoa física e ${moedaBR(d.pj.total)} como
+      jurídica. <strong>Aqui a decisão não é fiscal</strong> — é sobre estrutura,
+      sucessão e obrigações, não sobre imposto.`;
   }
-  if (c.enquadramento_indiferente) {
-    return `${peso ? `Equivale a ${peso}. ` : ''}Nos ${c.cenarios_possiveis}
-      cenários disponíveis para a sua receita o resultado é o mesmo: com estes
-      números, o enquadramento não muda o que você paga.`;
-  }
-  if (c.sou_o_mais_barato) {
-    return `${peso ? `Equivale a ${peso}. ` : ''}<strong>É o menor valor entre os
-      cenários disponíveis para você.</strong> Nos demais, com os seus mesmos
-      números, o imposto chega a ${moedaBR(c.maximo)} — uma diferença de
-      ${moedaBR(c.amplitude)} por ano.`;
-  }
-  return `${peso ? `Equivale a ${peso}. ` : ''}Com os seus mesmos números, o
-    imposto vai de <strong>${moedaBR(c.minimo)}</strong> a
-    <strong>${moedaBR(c.maximo)}</strong> conforme o enquadramento
-    ${c.sou_o_mais_caro ? '— e o seu é o mais caro dos que você alcança' : ''}.
-    O seu está <strong>${moedaBR(c.acima_do_minimo)} acima</strong> do menor
-    cenário disponível para você.`;
+  const barato = c.menor === 'pj' ? 'jurídica' : 'física';
+  const caro = c.menor === 'pj' ? 'física' : 'jurídica';
+  return `Pessoa física: <strong>${moedaBR(d.pf.total)}</strong>.
+    Pessoa jurídica: <strong>${moedaBR(d.pj.total)}</strong>.
+    Com os seus números a pessoa ${barato} sai
+    <strong>${moedaBR(c.diferenca)} por ano</strong> mais barata que a
+    ${caro}.`;
 }
 
+/* O título diz O QUE É o número em destaque. "A conta anual" não respondia se
+   era custo, economia ou potencial — e essa foi a dúvida. */
+function manchete(d, primeiro) {
+  const c = d.comparacao;
+  if (c.menor === 'empate') {
+    return {
+      titulo: `${primeiro}os dois caminhos dão praticamente a mesma conta`,
+      destaque: moedaBR(d.pf.total),
+      legenda: 'de imposto no ano, em qualquer um dos dois',
+    };
+  }
+  if (c.menor === 'pj') {
+    return {
+      titulo: `${primeiro}como pessoa jurídica a sua conta anual seria menor`,
+      destaque: moedaBR(c.diferenca),
+      legenda: 'de diferença por ano, a favor da pessoa jurídica',
+    };
+  }
+  return {
+    titulo: `${primeiro}com os seus números a pessoa física ainda é mais barata`,
+    destaque: moedaBR(c.diferenca),
+    legenda: 'de diferença por ano, a favor da pessoa física',
+  };
+}
+
+/* ── Render ───────────────────────────────────────────────────────────────── */
+
 export function renderResultado(d, { nome } = {}) {
-  const meu = d.quadros.find((q) => q.aplicavel);
   const alvo = el('#resultado');
   const zerado = d.motivo_zero !== null;
-
   const primeiro = nome ? `${String(nome).split(' ')[0]}, ` : '';
+  const m = manchete(d, primeiro);
 
-  /* O título diz O QUE É o número, não onde ele aparece. "A conta anual" não
-     respondia se era custo, economia ou potencial — e essa foi a dúvida. */
   el('#resultado-abertura', alvo).innerHTML = `
     <p class="eyebrow">Resultado da simulação</p>
-    <h2>${primeiro}este é o imposto que a sua atividade rural pagaria por ano</h2>
-    <p class="total-destaque">${moedaBR(meu.total)}</p>
+    <h2>${m.titulo}</h2>
+    <p class="total-destaque">${m.destaque}</p>
+    <p class="total-legenda-destaque">${m.legenda}</p>
     <p class="total-leitura">
-      ${zerado ? explicarZero(d) : explicarValor(d, meu)}
-    </p>
-    <p class="total-legenda">Seu enquadramento: ${meu.rotulo}</p>`;
+      ${zerado ? explicarZero(d) : explicarValor(d)}
+    </p>`;
 
-  el('#resultado-parcelas', alvo).innerHTML = `
-    <div class="parcela">
-      <span class="parcela-nome">Imposto de Renda</span>
-      <span class="parcela-valor">${moedaBR(meu.irpf)}</span>
-    </div>
-    <div class="parcela">
-      <span class="parcela-nome">IBS / CBS</span>
-      <span class="parcela-valor">${
-        meu.paga_ibscbs
-          ? moedaBR(meu.ibscbs)
-          : '<span class="isento">isento neste cenário</span>'
-      }</span>
-    </div>
-    <div class="parcela parcela--total">
-      <span class="parcela-nome">Total de imposto no ano</span>
-      <span class="parcela-valor">${moedaBR(meu.total)}</span>
-    </div>`;
+  el('#resultado-cenarios', alvo).innerHTML = cartaoPf(d) + cartaoPj(d);
+
+  el('#resultado-leitura', alvo).innerHTML = zerado ? '' : motorDaDiferenca(d);
+
+  /* A nota de vigência. IBS e CBS ainda não são cobrados: em 2025 e 2026 a
+     parcela de IBS/CBS dos DOIS cartões não existe. Sem esta frase, a página
+     apresenta como conta de hoje uma conta que só começa em 2027.
+
+     ⚠️ Sem números pré-Reforma de propósito. A conta atual da PJ inclui
+     PIS/COFINS cumulativo, que este modelo não tem — publicar um total de 2026
+     seria subestimar em silêncio. */
+  el('#resultado-vigencia', alvo).innerHTML = `
+    <strong>Em 2025 e 2026 ainda não há IBS/CBS.</strong> Os dois novos impostos
+    só passam a ser cobrados a partir de ${ANO_INICIO_IBSCBS} — até lá vale, na
+    pessoa física, apenas o Imposto de Renda, e na jurídica, os tributos do
+    regime atual. Esta simulação mostra o cenário <strong>já com a Reforma em
+    vigor</strong>, que é a conta com que você vai conviver.`;
 
   el('#resultado-memoria', alvo).innerHTML = `
+    <h4 class="memoria-titulo">Pessoa física</h4>
     <dl class="memoria">
       <div><dt>Receita bruta anual</dt><dd>${moedaBR(d.entradas.receitas)}</dd></div>
       <div><dt>Despesas no ano</dt><dd>${moedaBR(d.entradas.despesas)}</dd></div>
@@ -257,36 +289,53 @@ export function renderResultado(d, { nome } = {}) {
         <dd>${percentBR(d.base.aliq_irpf)}
           <small>menos dedução de ${moedaBR(d.base.ded_irpf)}</small></dd></div>
       <div><dt>Alíquota de IBS/CBS</dt>
-        <dd>${meu.paga_ibscbs ? percentBR(meu.aliquota_ibscbs) : '—'}
+        <dd>${d.pf.paga_ibscbs ? percentBR(d.pf.aliquota_ibscbs) : '—'}
           <small>${percentBR(ALIQ_IBSCBS_CHEIA)} com redução de
             ${percentBR(REDUCAO_AGRO)} do agro</small></dd></div>
+      <div><dt>Total como pessoa física</dt><dd>${moedaBR(d.pf.total)}</dd></div>
+    </dl>
+
+    <h4 class="memoria-titulo">Pessoa jurídica — Lucro Presumido rural</h4>
+    <dl class="memoria">
+      <div><dt>IRPJ</dt>
+        <dd>${moedaBR(d.pj.irpj)}<small>1,20% do faturamento</small></dd></div>
+      <div><dt>CSLL</dt>
+        <dd>${moedaBR(d.pj.csll)}<small>1,08% do faturamento</small></dd></div>
+      <div><dt>IBS/CBS sobre a receita</dt>
+        <dd>${moedaBR(d.pj.ibscbs_debito)}
+          <small>${percentBR(d.pj.aliquota_ibscbs)} de ${moedaBR(d.entradas.receitas)}</small></dd></div>
+      <div><dt>Crédito das despesas</dt>
+        <dd>− ${moedaBR(d.pj.ibscbs_credito)}
+          <small>${percentBR(d.pj.aliquota_ibscbs)} de ${moedaBR(d.entradas.despesas)}</small></dd></div>
+      <div class="memoria--destaque">
+        <dt>IBS/CBS devido</dt>
+        <dd>${moedaBR(d.pj.ibscbs)}
+          <small>${d.pj.credito_acumulado > 0
+            ? `crédito acumulado de ${moedaBR(d.pj.credito_acumulado)}`
+            : 'receita menos crédito'}</small></dd>
+      </div>
+      <div><dt>Total como pessoa jurídica</dt><dd>${moedaBR(d.pj.total)}</dd></div>
     </dl>
     <p class="memoria-nota">
-      O IBS/CBS incide sobre a mesma base do Imposto de Renda, não sobre a
-      receita bruta. Acima de ${moedaBR(LIMITE_RECEITA)} de receita, ser
-      contribuinte deixa de ser escolha.
+      Na pessoa física o IBS/CBS incide sobre a mesma base do Imposto de Renda,
+      limitada a 20% da receita; na jurídica ele é cobrado sobre a receita e
+      devolvido como crédito sobre as despesas. Acima de
+      ${moedaBR(LIMITE_RECEITA)} de receita, ser contribuinte deixa de ser
+      escolha na pessoa física.
     </p>`;
 
-  /* A coluna de IRPF SAIU da tabela de propósito: ela repetia o mesmo valor em
-     todas as linhas, e uma coluna constante esconde a diferença em vez de
-     mostrá-la. O valor é declarado uma vez no bloco acima (e aparece inteiro
-     no cartão de parcelas). No lugar dela entra a diferença, que é o que a
-     pessoa estava tendo de calcular de cabeça. */
-  el('#resultado-comparacao', alvo).innerHTML = `
-    <h3 class="comparacao-titulo">O que muda de um cenário para o outro</h3>
-    <div class="comparacao-leitura">${blocoDiferenca(d, meu)}</div>
-    <div class="tabela-rolagem">
-    <table class="tabela-quadros">
-      <caption>O mesmo produtor, os mesmos números, enquadramentos diferentes</caption>
-      <thead>
-        <tr>
-          <th scope="col">Cenário</th>
-          <th scope="col" class="num">IBS / CBS</th>
-          <th scope="col" class="num">Total no ano</th>
-          <th scope="col" class="num">Diferença para o seu</th>
-        </tr>
-      </thead>
-      <tbody>${d.quadros.map((q) => linhaQuadro(q, meu)).join('')}</tbody>
-    </table>
-    </div>`;
+  renderDedutiveis(el('#resultado-dedutiveis', alvo));
+
+  /* A ressalva que impede a tela de virar folheto. Ela é obrigatória
+     justamente quando a PJ ganha — e é o momento em que dá mais vontade de
+     tirá-la. Nomeia o que a conta NÃO mede, que é o que decide o caso real. */
+  el('#resultado-ressalva', alvo).innerHTML = `
+    <p class="ressalva">
+      <strong>Esta comparação não é uma recomendação.</strong> Ela mede imposto,
+      e imposto não é a conta inteira: virar pessoa jurídica traz contabilidade
+      e obrigações acessórias, regras de pró-labore e de distribuição de lucros,
+      contribuição previdenciária própria e custo de abertura e manutenção do
+      CNPJ — nada disso entra nos números acima. O caminho que serve para você é
+      conversa com o seu contador, com estes números na mão.
+    </p>`;
 }
