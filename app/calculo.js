@@ -127,10 +127,23 @@ export function calcularIrpf(base) {
 
 /* Quem paga IBS/CBS. Esta é a regra inteira, e ela não consulta a numeração dos
    quadros — deriva das condições, que é o que a planilha de fato declara em
-   `B17` ("SIM para COOPERATIVA → IBS/CBS = 0") e `B18` (receita ≥ 3,6 mi). */
+   `B17` ("SIM para COOPERATIVA → IBS/CBS = 0") e `B18` (receita ≥ 3,6 mi).
+
+   ⚠️ A ORDEM É A REGRA. A cooperativa é testada ANTES do obrigatório: quem é
+   cooperado não paga IBS/CBS em faixa nenhuma de receita, e o degrau de
+   R$ 3,6 mi simplesmente não o alcança.
+
+   Isto INVERTE o que valia até 30/07/2026, quando `obrigatorio` vinha primeiro
+   e o degrau tornava o cooperado contribuinte. Decisão do Ricardo, tomada
+   depois de ver a tela: a mesma pergunta estava aberta para a Cirlei (era a
+   pergunta 10 do documento de validação) e foi resolvida por aqui. É o primeiro
+   ajuste que altera o trecho liberado por ela em 28/07 — e por isso a pergunta
+   continua no documento, agora ao contrário: confirmar que o degrau NÃO alcança
+   cooperado. Trocar estas duas linhas de lugar muda o imposto de todo cooperado
+   acima de R$ 3,6 mi em R$ 80.640 por ano. */
 export function pagaIbsCbs({ cooperativa, contribuinte, obrigatorio }) {
-  if (obrigatorio) return true;
   if (cooperativa) return false;
+  if (obrigatorio) return true;
   return Boolean(contribuinte);
 }
 
@@ -154,10 +167,16 @@ export function calcularQuadro(quadro, dadosBase) {
 }
 
 /* Qual dos cinco cenários é o da pessoa.
-   A faixa obrigatória vence qualquer combinação: acima de R$ 3,6 mi de receita
-   não existe escolha a fazer. */
+   A faixa obrigatória vence a escolha de "contribuinte" — acima de R$ 3,6 mi de
+   receita não existe o que decidir — mas NÃO vence a cooperativa.
+
+   ⚠️ A guarda de cooperativa tem que estar aqui também, e não só em
+   `pagaIbsCbs()`. O quadro escolhido é o que dá o RÓTULO que a pessoa lê: sem
+   ela, o cooperado acima do limite cairia no quadro 5 e a tela diria
+   "contribuinte obrigatório" para quem está isento — número certo, frase
+   errada, que é o jeito mais fácil de perder a confiança na ferramenta. */
 export function quadroAplicavel({ receitas, cooperativa, contribuinte }) {
-  if ((Number(receitas) || 0) >= LIMITE_RECEITA) {
+  if ((Number(receitas) || 0) >= LIMITE_RECEITA && !cooperativa) {
     return QUADROS.find((q) => q.id === QUADRO_OBRIGATORIO);
   }
   return QUADROS.find(

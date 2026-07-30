@@ -159,23 +159,18 @@ function faixaRespostas(d) {
     <div><dt>Cooperado</dt><dd>${simNao(e.cooperativa)}</dd></div>
     <div><dt>Contribuinte de IBS/CBS</dt><dd>${simNao(e.contribuinte)}</dd></div>`;
 
+  /* ⚠️ `!e.cooperativa` entrou em 30/07, junto com a regra de que a cooperativa
+     vence o degrau. Para o cooperado o enquadramento declarado NÃO é
+     sobreposto — ele continua valendo acima do limite —, e manter o aviso ali
+     faria a tela avisar de uma sobreposição que não aconteceu. */
   const sobreposto = e.receitas >= LIMITE_RECEITA
-    && (!e.contribuinte || e.cooperativa);
-  /* Os dois cartões divergindo no IBS/CBS. Vem do estado calculado, não das
-     entradas: quem decide a regra é `calculo.js`, e reinferi-la aqui seria a
-     tela opinando sobre imposto. */
-  const divergem = d.pf.paga_ibscbs && !d.pj.paga_ibscbs;
+    && !e.cooperativa && !e.contribuinte;
   const nota = el('#resultado-respostas-nota');
   nota.hidden = !sobreposto;
   nota.innerHTML = sobreposto
     ? `Acima de ${moedaBR(LIMITE_RECEITA)} de receita o enquadramento declarado
-       deixa de valer <strong>na pessoa física</strong>: a simulação a
-       considerou <strong>contribuinte de IBS/CBS</strong>, como manda a regra.${
-      divergem
-        ? ` Na pessoa jurídica isso não acontece — lá a cooperativa continua
-            respondendo pelo IBS/CBS, e é por isso que os dois cartões abaixo
-            divergem nessa linha.`
-        : ''}`
+       deixa de valer: a simulação considerou <strong>contribuinte de
+       IBS/CBS</strong>, como manda a regra.`
     : '';
 }
 
@@ -214,18 +209,12 @@ function motorDaDiferenca(d) {
       sobre o faturamento mesmo sem lucro.</p>`;
   }
 
-  /* Cooperado acima de R$ 3,6 mi. Os dois lados divergem, e a tela precisa
-     dizer POR QUÊ — senão parece que um dos cartões está errado. */
-  if (pfPaga && !pjPaga) {
-    return `<p>Os dois lados divergem no IBS/CBS, e é isso que produz a maior
-      parte da diferença: acima de ${moedaBR(LIMITE_RECEITA)} de receita a
-      <strong>pessoa física vira contribuinte obrigatória</strong> e paga
-      ${moedaBR(d.pf.ibscbs)}; na <strong>pessoa jurídica a cooperativa continua
-      respondendo</strong> por esse imposto. O resto da diferença está entre o
-      Imposto de Renda (${moedaBR(d.pf.irpf)}) e os
-      ${percentBR(d.pj.aliquota_irpj_csll)} de IRPJ + CSLL
-      (${moedaBR(d.pj.irpj_csll)}).</p>`;
-  }
+  /* ⚠️ NÃO existe o caso "a PF paga e a PJ não". A cooperativa zera os dois
+     lados e vence o degrau de R$ 3,6 mi em ambos, então `pjPaga` falso implica
+     `pfPaga` falso. Existiu por algumas horas em 30/07, com uma nota na tela
+     explicando a divergência; a regra mudou e o ramo saiu junto. Se um dia
+     `pfPaga && !pjPaga` voltar a ser alcançável, é porque alguém separou as
+     duas regras de novo — e aí a tela precisa de um texto para isso. */
 
   /* Não cooperado e não contribuinte, abaixo do limite. Só chega aqui com
      `cooperativa` falsa — se fosse cooperado, a PJ também não pagaria. */
@@ -414,9 +403,9 @@ export function renderResultado(d, { nome } = {}) {
       Na pessoa física o IBS/CBS incide sobre a mesma base do Imposto de Renda,
       limitada a 20% da receita; na jurídica ele é cobrado sobre a receita e
       devolvido como crédito sobre as despesas. <strong>Sendo cooperado, a
-      cooperativa responde pelo IBS/CBS nos dois casos</strong> — com uma
-      exceção: acima de ${moedaBR(LIMITE_RECEITA)} de receita, ser contribuinte
-      deixa de ser escolha na pessoa física, e só nela.
+      cooperativa responde pelo IBS/CBS nos dois casos</strong>, em qualquer
+      faixa de receita. Não sendo, acima de ${moedaBR(LIMITE_RECEITA)} de
+      receita ser contribuinte deixa de ser escolha na pessoa física.
     </p>`;
 
   renderDedutiveis(el('#resultado-dedutiveis', alvo));

@@ -460,16 +460,16 @@ h1 { margin: 0 0 var(--space-6); max-width: 20ch; letter-spacing: .01em; }
   font-variant-numeric: tabular-nums;
   font-weight: var(--fw-medium);
 }
-/* O botão de ajustar, logo abaixo da caixa de respostas. Encostado nela
-   (`margin-top` curto) para se ler como ação DAQUELE painel e não como um bloco
-   solto entre a conferência e os dois cenários.
+/* O botão de ajustar, logo abaixo dos dois cartões. Respiro maior que o filete
+   entre blocos: aqui ele fecha a leitura do resultado, não pertence a um painel
+   específico, e colado no cartão pareceria parte dele.
 
    ⚠️ `width: 100%` com teto em `max-width`, e não media query: no celular o
    botão ocupa a largura toda (área de toque cheia) e na tela larga para em
    22rem, sem virar uma barra atravessada. Mesma técnica da grade de respostas
    aqui em cima — esta folha resolve responsividade sem breakpoint. */
 .ajustar {
-  margin-top: var(--space-3);
+  margin-top: var(--space-5);
   display: flex;
 }
 .ajustar .botao { width: 100%; max-width: 22rem; }

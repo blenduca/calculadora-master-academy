@@ -224,10 +224,16 @@
         <p class="respostas-nota" id="resultado-respostas-nota" hidden></p>
       </div>
 
-      <!-- Botão de verdade, FORA da caixa e logo abaixo dela. Antes era um link
-           discreto na mesma linha do título "Você informou": quem conferia as
-           respostas e via um número errado não tinha ação à mão — a saída mais
-           próxima era o rodapé, depois dos dois cartões e da memória.
+      <!-- Os dois cenários. Só dois: a tabela de cinco quadros de enquadramento
+           saiu porque quatro daquelas linhas repetiam dois valores, e a pergunta
+           que o produtor faz é outra — vale a pena virar PJ? -->
+      <div id="resultado-cenarios" class="cenarios"></div>
+
+      <!-- Botão de verdade, DEPOIS dos dois cartões: a pessoa vê os números
+           primeiro e só então decide corrigir. Antes era um link discreto na
+           mesma linha do título "Você informou", e depois passou brevemente
+           para cima dos cartões — onde oferecia a correção antes de haver o que
+           corrigir, separando a conferência do resultado.
 
            Continua na marcação ESTÁTICA, e não dentro do HTML que o JS
            reescreve: o listener é ligado uma vez na inicialização e um botão
@@ -237,11 +243,6 @@
           Ajustar meus números
         </button>
       </div>
-
-      <!-- Os dois cenários. Só dois: a tabela de cinco quadros de enquadramento
-           saiu porque quatro daquelas linhas repetiam dois valores, e a pergunta
-           que o produtor faz é outra — vale a pena virar PJ? -->
-      <div id="resultado-cenarios" class="cenarios"></div>
 
       <div id="resultado-leitura" class="leitura-diferenca"></div>
 
